@@ -1,0 +1,136 @@
+/*
+    Copyright 2024 Stefan Weng
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License. You may obtain a copy
+    of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+    License for the specific language governing permissions and limitations
+    under the License.
+*/
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+sapl_document = { SOI ~ import_statement* ~ schema* ~ policy_element ~ EOI }
+
+import_statement = { "import" ~ (wildcard_import | library_import | function_import) }
+
+wildcard_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ "*" }
+
+library_import = { sapl_id ~ ("." ~ sapl_id)* ~ "as" ~ sapl_id }
+
+function_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ sapl_id }
+
+schema = { reserved_id ~ ("enforced")? ~ "schema" ~ expression }
+
+policy_element = _{ policy_set | policy }
+
+policy_set = { "set" ~ string ~ combining_algorithm ~ ("for" ~ target_expression)? ~ (value_definition ~ ";")* ~ policy+ }
+
+combining_algorithm = {
+    "deny-overrides"
+  | "permit-overrides"
+  | "first-applicable"
+  | "only-one-applicable"
+  | "deny-unless-permit"
+  | "permit-unless-deny"
+}
+
+statement = { (value_definition | expression) ~ ";"* }
+
+value_definition = { "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+
+entitlement = @{ "permit" | "deny" }
+
+policy = {
+    "policy" ~ string ~ entitlement ~ (target_expression)? ~ ("where" ~ statement ~ (statement)*)? ~ ("obligation" ~ expression)* ~ ("advice" ~ expression)* ~ ("transform" ~ expression)*
+}
+
+target_expression = _{ expression }
+
+expression = _{ lazy_or }
+
+lazy_or = _{ lazy_and ~ ("||" ~ lazy_and)* }
+
+lazy_and = _{ eager_or ~ ("&&" ~ eager_or)* }
+
+eager_or = _{ exclusive_or ~ ("|" ~ exclusive_or)* }
+
+exclusive_or = _{ eager_and ~ ("^" ~ eager_and)* }
+
+eager_and = _{ equality ~ ("&" ~ equality)* }
+
+equality = _{ comparison ~ (("==" | "!=" | "=~") ~ comparison)? }
+
+comparison = _{ addition ~ (("<" | "<=" | ">" | ">=" | "in") ~ addition)? }
+
+addition = _{ multiplication ~ (("+" | "-") ~ multiplication)* }
+
+multiplication = _{ unary_expression ~ (("*" | "/" | "%") ~ unary_expression)* }
+
+unary_expression = _{ ("!" | "-" | "+") ~ unary_expression | basic_expression }
+
+basic_expression = _{ basic ~ (FILTER ~ filter_component | SUBTEMPLATE ~ basic_expression)? }
+
+filter_component = { "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
+
+filter_statement = { "each"? ~ "@"? ~ ":" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? }
+
+arguments = { "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
+
+basic = _{
+    "(" ~ expression ~ ")" ~ step*
+  | value ~ step*
+  | sapl_id ~ ("." ~ sapl_id)* ~ arguments ~ step*
+  | "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" ~ step*
+  | "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" ~ step*
+  | sapl_id ~ step*
+  | "@" ~ step*
+}
+
+value = { object | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
+
+object = { "{" ~ (pair ~ ("," ~ pair)*)? ~ "}" }
+
+pair = { string ~ ":" ~ expression }
+
+array = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
+
+number_literal = { JSONNUMBER }
+
+JSONNUMBER = { ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
+
+string_literal = _{ string }
+
+boolean_literal = { "true" | "false" }
+
+null_literal = { "null" }
+
+undefined_literal = { "undefined" }
+
+step = _{
+    "." ~ (sapl_id | string | "*" | "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" | "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">")
+  | "[" ~ subscript ~ "]"
+  | ".." ~ ((sapl_id | "[" ~ string ~ "]") | ("*" | "[" ~ "*" ~ "]") | "[" ~ signed_number ~ "]")
+}
+
+subscript = { string | "*" | signed_number | signed_number? ~ ":" ~ signed_number? ~ (":" ~ signed_number)? | "(" ~ expression ~ ")" | "?" ~ "(" ~ expression ~ ")" | signed_number ~ ("," ~ signed_number)* | string ~ ("," ~ string)* }
+
+signed_number = { "-"? ~ JSONNUMBER }
+
+sapl_id = @{ id | reserved_id }
+
+id = { "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
+
+reserved_id = @{ "subject" | "action" | "resource" | "environment" }
+
+string = _{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+
+FILTER = { "|-" }
+
+SUBTEMPLATE = { "::" }
