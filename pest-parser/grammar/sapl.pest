@@ -16,7 +16,7 @@
 
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-sapl_document = { SOI ~ import_statement* ~ schema* ~ policy_element ~ EOI }
+sapl_document = _{ SOI ~ import_statement* ~ schema* ~ policy_element ~ EOI }
 
 import_statement = { "import" ~ (wildcard_import | library_import | function_import) }
 
@@ -129,7 +129,7 @@ id = { "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT
 
 reserved_id = @{ "subject" | "action" | "resource" | "environment" }
 
-string = _{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+string = { "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
 
 FILTER = { "|-" }
 
