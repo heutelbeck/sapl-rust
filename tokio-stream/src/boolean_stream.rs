@@ -15,6 +15,7 @@
 */
 
 use crate::delay::Delay;
+use crate::reduce::Reduce;
 use std::{
     future::Future,
     pin::Pin,
@@ -38,6 +39,10 @@ impl BooleanInterval {
                 when: Instant::now(),
             },
         }
+    }
+
+    pub fn reduce(self) -> Reduce<Self> {
+        Reduce::new(self)
     }
 }
 

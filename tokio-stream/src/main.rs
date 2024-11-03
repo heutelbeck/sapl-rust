@@ -16,6 +16,7 @@
 
 mod boolean_stream;
 mod delay;
+mod reduce;
 
 use boolean_stream::BooleanInterval;
 use std::time::Duration;
@@ -28,7 +29,16 @@ async fn main() {
         hello(),
         merge_stream(),
         filter_merge_stream(),
+        reduce(),
     );
+}
+
+async fn reduce() {
+    let mut stream = BooleanInterval::new(Duration::from_secs(1)).reduce();
+
+    while let Some(s) = stream.next().await {
+        println!("reduce = {:?}", s);
+    }
 }
 
 async fn simple_stream() {
