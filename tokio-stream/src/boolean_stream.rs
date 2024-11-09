@@ -14,8 +14,7 @@
     under the License.
 */
 
-use crate::delay::Delay;
-use crate::reduce::Reduce;
+use crate::{combine_eager::CombineEager, delay::Delay};
 use std::{
     future::Future,
     pin::Pin,
@@ -41,8 +40,11 @@ impl BooleanInterval {
         }
     }
 
-    pub fn reduce(self) -> Reduce<Self> {
-        Reduce::new(self)
+    pub fn combine_eager<U>(self, other: U) -> CombineEager<Self, U>
+    where
+        U: Stream<Item = <BooleanInterval as Stream>::Item>,
+    {
+        CombineEager::new(self, other)
     }
 }
 

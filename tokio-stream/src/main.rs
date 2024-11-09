@@ -15,37 +15,77 @@
 */
 
 mod boolean_stream;
+mod combine_eager;
 mod delay;
-mod reduce;
 
 use boolean_stream::BooleanInterval;
-use std::time::Duration;
-use tokio_stream::StreamExt;
+use futures::pin_mut;
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
+use tokio::{select, time::interval};
+use tokio_stream::{wrappers::IntervalStream, Stream, StreamExt};
 
 #[tokio::main]
 async fn main() {
     tokio::join!(
-        simple_stream(),
+        simple_stream_1(),
+        simple_stream_2(),
+        simple_stream_3(),
         hello(),
         merge_stream(),
         filter_merge_stream(),
-        reduce(),
+        combine_eager_solution1(),
+        combine_eager_solution2(),
     );
 }
 
-async fn reduce() {
-    let mut stream = BooleanInterval::new(Duration::from_secs(1)).reduce();
+async fn combine_eager_solution1() {
+    let stream1 = BooleanInterval::new(Duration::from_millis(1000));
+    let stream2 = BooleanInterval::new(Duration::from_millis(5000));
+    let mut stream = stream1.combine_eager(stream2);
 
-    while let Some(s) = stream.next().await {
-        println!("reduce = {:?}", s);
+    while let Some(v) = stream.next().await {
+        println!("stream_combine_eager #1 = {:?}", v);
     }
 }
 
-async fn simple_stream() {
-    let mut stream = BooleanInterval::new(Duration::from_secs(1)).filter(|e| *e);
+async fn combine_eager_solution2() {
+    let stream1 = BooleanInterval::new(Duration::from_millis(1000));
+    let stream2 = BooleanInterval::new(Duration::from_millis(5000));
+    let stream = both_true_stream(stream1, stream2).await;
+
+    pin_mut!(stream);
+
+    while let Some(_) = stream.next().await {
+        println!("stream_combine_eager #2 = Both are true");
+    }
+}
+
+async fn simple_stream_1() {
+    let b = AtomicBool::new(false);
+    let mut stream = IntervalStream::new(interval(Duration::from_secs(1)))
+        .map(move |_| b.fetch_not(Ordering::SeqCst));
 
     while let Some(v) = stream.next().await {
         println!("simple_stream = {:?}", v);
+    }
+}
+
+async fn simple_stream_2() {
+    let mut stream = BooleanInterval::new(Duration::from_millis(2500));
+
+    while let Some(v) = stream.next().await {
+        println!("simple_stream 2500ms = {:?}", v);
+    }
+}
+
+async fn simple_stream_3() {
+    let mut stream = BooleanInterval::new(Duration::from_millis(5000));
+
+    while let Some(v) = stream.next().await {
+        println!("simple_stream 5000ms = {:?}", v);
     }
 }
 
@@ -60,8 +100,8 @@ async fn filter_merge_stream() {
 }
 
 async fn merge_stream() {
-    let mut rx = BooleanInterval::new(Duration::from_millis(250))
-        .merge(BooleanInterval::new(Duration::from_millis(500)));
+    let mut rx = BooleanInterval::new(Duration::from_millis(2500))
+        .merge(BooleanInterval::new(Duration::from_millis(5000)));
 
     while let Some(v) = rx.next().await {
         println!("merge_stream = {:?}", v);
@@ -70,4 +110,29 @@ async fn merge_stream() {
 
 async fn hello() {
     println!("Hallo async");
+}
+
+async fn both_true_stream<
+    A: Stream<Item = bool> + std::marker::Unpin,
+    B: Stream<Item = bool> + std::marker::Unpin,
+>(
+    a: A,
+    b: B,
+) -> impl Stream<Item = ()> {
+    async_stream::stream! {
+            pin_mut!(a);
+            pin_mut!(b);
+            let mut aa = false;
+            let mut bb = false;
+            loop {
+                select! {
+                    v = a.next() => aa = v.unwrap(),
+                    v = b.next() => bb = v.unwrap(),
+                    else => break,
+                }
+                if aa && bb {
+                    yield ();
+            }
+        }
+    }
 }
