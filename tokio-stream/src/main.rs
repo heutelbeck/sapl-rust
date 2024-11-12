@@ -16,6 +16,7 @@
 
 mod boolean_stream;
 mod combine_eager;
+mod combine_lazy;
 mod delay;
 
 use boolean_stream::BooleanInterval;
@@ -38,7 +39,18 @@ async fn main() {
         filter_merge_stream(),
         combine_eager_solution1(),
         combine_eager_solution2(),
+        combine_lazy_solution1(),
     );
+}
+
+async fn combine_lazy_solution1() {
+    let stream1 = BooleanInterval::new(Duration::from_millis(1000));
+    let stream2 = BooleanInterval::new(Duration::from_millis(5000));
+    let mut stream = stream1.combine_lazy(stream2);
+
+    while let Some(v) = stream.next().await {
+        println!("stream_combine_lazy #1 = {:?}", v);
+    }
 }
 
 async fn combine_eager_solution1() {
