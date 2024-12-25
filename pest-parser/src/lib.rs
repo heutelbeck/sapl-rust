@@ -18,43 +18,13 @@ mod decision;
 
 pub use crate::decision::Decision;
 
-use lazy_static::lazy_static;
-use pest::iterators::Pairs;
-use pest::pratt_parser::PrattParser;
+use pest::error::Error;
 use pest::Parser;
 use pest_derive::Parser;
 
 #[derive(Parser)]
 #[grammar = "grammar/sapl.pest"]
 pub struct SaplParser;
-
-lazy_static! {
-    static ref PRATT_PARSER: PrattParser<Rule> = {
-        use pest::pratt_parser::{Assoc::*, Op};
-        use Rule::*;
-
-        //Precedence is defined lowest to highest
-        PrattParser::new()
-            //Addition and subtract have equal precedence
-            //.op(Op::infix(policy, Left))
-    };
-}
-
-#[derive(Debug)]
-pub enum SaplDocument<'a> {
-    ImportStatment,
-    Schema,
-    PolicySet,
-    Policy(Box<SaplDocument<'a>>),
-    String(&'a str),
-    Entitlement(Entitlement),
-}
-
-impl SaplDocument<'_> {
-    pub fn get_decision(&self) -> Decision {
-        Decision::Deny
-    }
-}
 
 #[derive(Debug)]
 pub enum Entitlement {
@@ -66,57 +36,161 @@ impl Entitlement {
     fn new(s: &str) -> Self {
         if s.eq("permit") {
             Entitlement::Permit
-        } else {
+        } else if s.eq("deny") {
             Entitlement::Deny
+        } else {
+            panic!("Input {} could not be parsed as entitlement", s)
         }
     }
 }
 
-fn parse_sapl_document(pairs: Pairs<Rule>) -> SaplDocument {
-    PRATT_PARSER
-        .map_primary(|primary| match primary.as_rule() {
-            Rule::import_statement => SaplDocument::ImportStatment,
-            Rule::schema => SaplDocument::Schema,
-            Rule::policy_set => SaplDocument::PolicySet,
-            Rule::entitlement => SaplDocument::Entitlement(Entitlement::new(primary.as_str())),
-            Rule::policy => parse_sapl_document(primary.into_inner()),
-            Rule::string => SaplDocument::String(primary.as_str()),
+#[derive(Debug)]
+pub enum CombiningAlgorithm {
+    DenyOverrides,
+    PermitOverrides,
+    FirstApplicable,
+    OnlyOneApplicable,
+    DenyUnlessPermit,
+    PermitUnlessDeny,
+}
+
+impl CombiningAlgorithm {
+    fn new(s: &str) -> Self {
+        if s.eq("deny-overrides") {
+            CombiningAlgorithm::DenyOverrides
+        } else if s.eq("permit-overrides") {
+            CombiningAlgorithm::PermitOverrides
+        } else if s.eq("first-applicable") {
+            CombiningAlgorithm::FirstApplicable
+        } else if s.eq("only-one-applicable") {
+            CombiningAlgorithm::OnlyOneApplicable
+        } else if s.eq("deny-unless-permit") {
+            CombiningAlgorithm::DenyUnlessPermit
+        } else if s.eq("permit-unless-deny") {
+            CombiningAlgorithm::PermitUnlessDeny
+        } else {
+            panic!("Input {} could not be parsed as combining algorithm", s)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ReservedId {
+    Subject,
+    Action,
+    Resource,
+    Environment,
+}
+
+impl ReservedId {
+    fn new(s: &str) -> Self {
+        if s.eq("subject") {
+            ReservedId::Subject
+        } else if s.eq("action") {
+            ReservedId::Action
+        } else if s.eq("resource") {
+            ReservedId::Resource
+        } else if s.eq("environment") {
+            ReservedId::Environment
+        } else {
+            panic!("Input {} could not be parsed as reserved id", s)
+        }
+    }
+}
+/*
+pub fn serialize_sapldocument(sapl: &SaplDocument) -> String {
+    use SaplDocument::*;
+
+    match sapl {
+        PolicySet => format!("PolicySet:"),
+        Policy(_p) => format!("null"),
+        String(s) => format!("{}", s),
+        Entitlement(e) => format!("{:?}", e),
+    }
+}*/
+
+#[derive(Debug)]
+pub enum SaplDocument<'a> {
+    Document(Vec<SaplDocument<'a>>),
+    LibraryImport(Vec<SaplDocument<'a>>),
+    Schema(Vec<SaplDocument<'a>>),
+    PolicySet(Vec<SaplDocument<'a>>),
+    Policy(Vec<SaplDocument<'a>>),
+    PolicyName(&'a str),
+    PolicySetName(&'a str),
+    Entitlement(Entitlement),
+    CombiningAlgorithm(CombiningAlgorithm),
+    Transformation(Vec<SaplDocument<'a>>),
+    Advice(Vec<SaplDocument<'a>>),
+    Obligation(Vec<SaplDocument<'a>>),
+    Statement(Vec<SaplDocument<'a>>),
+    Where(Vec<SaplDocument<'a>>),
+    TargetExpression(Vec<SaplDocument<'a>>),
+    ReserveId(ReservedId),
+    SaplId(&'a str),
+    Id(&'a str),
+    Filter(&'a str),
+    Value(&'a str),
+}
+
+pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Error<Rule>> {
+    let sapl = SaplParser::parse(Rule::sapl_document, file)?
+        .next()
+        .unwrap();
+
+    use pest::iterators::Pair;
+
+    fn parse_value(pair: Pair<Rule>) -> SaplDocument {
+        match pair.as_rule() {
+            Rule::document => SaplDocument::Document(pair.into_inner().map(parse_value).collect()),
+            Rule::library_import => {
+                SaplDocument::LibraryImport(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::policy_set => {
+                SaplDocument::PolicySet(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::policy => SaplDocument::Policy(pair.into_inner().map(parse_value).collect()),
+            Rule::policy_name => SaplDocument::PolicyName(pair.as_str()),
+            Rule::policy_set_name => SaplDocument::PolicySetName(pair.as_str()),
+            Rule::entitlement => SaplDocument::Entitlement(Entitlement::new(pair.as_str())),
+            Rule::combining_algorithm => {
+                SaplDocument::CombiningAlgorithm(CombiningAlgorithm::new(pair.as_str()))
+            }
+            Rule::sapl_id => SaplDocument::SaplId(pair.as_str()),
+            Rule::id => SaplDocument::SaplId(pair.as_str()),
+            Rule::schema => SaplDocument::Schema(pair.into_inner().map(parse_value).collect()),
+            Rule::reserved_id => SaplDocument::ReserveId(ReservedId::new(pair.as_str())),
+            Rule::transformation => {
+                SaplDocument::Transformation(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::advice => SaplDocument::Advice(pair.into_inner().map(parse_value).collect()),
+            Rule::obligation => {
+                SaplDocument::Obligation(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::statement => {
+                SaplDocument::Statement(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::where_statement => {
+                SaplDocument::Where(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::target_expression => {
+                SaplDocument::TargetExpression(pair.into_inner().map(parse_value).collect())
+            }
+            Rule::value => SaplDocument::Value(pair.as_str()),
+            Rule::FILTER => SaplDocument::Filter(pair.as_str()),
             rule => unreachable!(
                 "Sapl::parse expected import_statement, schema, policy_set or policy, found {:?}",
                 rule
             ),
-        })
-        .parse(pairs)
-}
-
-pub fn parse(document: &str) -> SaplDocument {
-    match SaplParser::parse(Rule::sapl_document, document) {
-        Ok(mut pairs) => {
-            println!(
-                "Parsed: {:#?}",
-                parse_sapl_document(
-                    //inner of expr
-                    pairs.next().unwrap().into_inner()
-                )
-            );
-        }
-        Err(e) => {
-            eprintln!("Parse failed {:?}", e);
         }
     }
 
-    SaplDocument::Schema
+    Ok(parse_value(sapl))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parse_failed() {
-        let decision = parse("Das ist ein Test");
-        assert_eq!(decision.get_decision(), Decision::Deny);
-    }
 
     #[test]
     fn policy() {
@@ -152,5 +226,71 @@ mod tests {
             .next()
             .unwrap();
         assert_eq!(pair.as_rule(), Rule::entitlement);
+    }
+
+    #[test]
+    fn parse_simple_policy() {
+        let policy = parse_sapl_file("policy \"policy 1\" deny");
+        assert!(policy.is_ok());
+    }
+
+    #[test]
+    fn parse_policy_set() {
+        let policy_set = parse_sapl_file(
+            "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
+        );
+        assert!(policy_set.is_ok());
+    }
+
+    #[test]
+    fn parse_import_statement() {
+        let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
+        assert!(import.is_ok());
+    }
+
+    #[test]
+    fn parse_schema() {
+        let schema = parse_sapl_file("subject schema aSubjectSchema policy \"policy schema\" deny");
+        assert!(schema.is_ok());
+    }
+
+    #[test]
+    fn parse_where_statement() {
+        let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+        assert!(where_statement.is_ok());
+    }
+
+    #[test]
+    fn parse_obligation() {
+        let obligation =
+            parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
+        assert!(obligation.is_ok());
+    }
+
+    #[test]
+    fn parse_advice() {
+        let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
+        assert!(advice.is_ok());
+    }
+
+    #[test]
+    fn parse_transformation() {
+        let transformation =
+            parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
+        assert!(transformation.is_ok());
+    }
+
+    #[test]
+    fn parse_target_expression() {
+        let target_exp = parse_sapl_file(
+            "policy \"test_policy\" permit subject.id == \"anId\" | action == \"anAction\"",
+        );
+        assert!(target_exp.is_ok());
+    }
+
+    #[test]
+    fn parse_all_options() {
+        let policy = parse_sapl_file("import filter as filter subject schema aSubjectSchema policy \"test_policy\" permit subject.id == \"anId\" | action == \"anAction\" where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\" } obligation \"logging:log_access\" advice \"logging:inform_admin\" transform resource.content |- filter.blacken");
+        assert!(policy.is_ok());
     }
 }

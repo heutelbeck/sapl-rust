@@ -16,9 +16,11 @@
 
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-sapl_document = _{ SOI ~ import_statement* ~ schema* ~ policy_element ~ EOI }
+sapl_document = _{ SOI ~ document ~ EOI }
 
-import_statement = { "import" ~ (wildcard_import | library_import | function_import) }
+document = { import_statement* ~ schema* ~ policy_element }
+
+import_statement = _{ "import" ~ (wildcard_import | library_import | function_import) }
 
 wildcard_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ "*" }
 
@@ -30,7 +32,7 @@ schema = { reserved_id ~ ("enforced")? ~ "schema" ~ expression }
 
 policy_element = _{ policy_set | policy }
 
-policy_set = { "set" ~ string ~ combining_algorithm ~ ("for" ~ target_expression)? ~ (value_definition ~ ";")* ~ policy+ }
+policy_set = { "set" ~ policy_set_name ~ combining_algorithm ~ ("for" ~ target_expression)? ~ (value_definition ~ ";")* ~ policy+ }
 
 combining_algorithm = {
     "deny-overrides"
@@ -41,17 +43,29 @@ combining_algorithm = {
   | "permit-unless-deny"
 }
 
-statement = { (value_definition | expression) ~ ";"* }
+policy_set_name = { string }
 
-value_definition = { "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+statement = { !("where" | "transform" | "advice" | "obligation") ~ (value_definition | expression) ~ ";"* }
 
-entitlement = @{ "permit" | "deny" }
+value_definition = _{ "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+
+entitlement = { "permit" | "deny" }
+
+policy_name = { string }
+
+where_statement = { ("where" ~ statement ~ (statement)*) }
+
+transformation = { ("transform" ~ expression) }
+
+advice = { ("advice" ~ expression) }
+
+obligation = { ("obligation" ~ expression) }
 
 policy = {
-    "policy" ~ string ~ entitlement ~ (target_expression)? ~ ("where" ~ statement ~ (statement)*)? ~ ("obligation" ~ expression)* ~ ("advice" ~ expression)* ~ ("transform" ~ expression)*
+    "policy" ~ policy_name ~ entitlement ~ target_expression? ~ where_statement? ~ obligation* ~ advice* ~ transformation*
 }
 
-target_expression = _{ expression }
+target_expression = { !("where" | "transform" | "advice" | "obligation") ~ expression }
 
 expression = _{ lazy_or }
 
@@ -77,7 +91,7 @@ unary_expression = _{ ("!" | "-" | "+") ~ unary_expression | basic_expression }
 
 basic_expression = _{ basic ~ (FILTER ~ filter_component | SUBTEMPLATE ~ basic_expression)? }
 
-filter_component = { "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
+filter_component = _{ "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
 
 filter_statement = { "each"? ~ "@"? ~ ":" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? }
 
@@ -129,7 +143,7 @@ id = { "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT
 
 reserved_id = @{ "subject" | "action" | "resource" | "environment" }
 
-string = { "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+string = _{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
 
 FILTER = { "|-" }
 

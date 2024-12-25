@@ -15,19 +15,46 @@
 */
 
 use pest::Parser;
-use pest_parser::Decision;
+use pest_parser::parse_sapl_file;
 use pest_parser::Rule;
-use pest_parser::{parse, SaplParser};
+use pest_parser::SaplParser;
 
 fn main() {
-    let parse_result = SaplParser::parse(Rule::policy, "policy \"policy 1\" deny").unwrap();
+    let parse_result = SaplParser::parse(
+        Rule::sapl_document,
+        "policy \"policy 1\" deny transform resource.content |- filter.blacken",
+    )
+    .unwrap();
     let tokens = parse_result.tokens();
 
     for token in tokens {
         println!("{:?}", token);
     }
 
-    println!("Now SaplDocument Rule:");
-    let decision = parse("policy \"policy 1\" deny");
-    assert_eq!(decision.get_decision(), Decision::Deny);
+    let policy = parse_sapl_file("policy \"policy 1\" deny");
+    println!("{:?}", policy);
+
+    let policy_set = parse_sapl_file(
+        "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
+    );
+    println!("{:?}", policy_set);
+
+    let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
+    println!("{:?}", import);
+
+    let schema = parse_sapl_file("subject schema aSubjectSchema policy \"policy schema\" deny");
+    println!("{:?}", schema);
+
+    let transform =
+        parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
+    println!("{:?}", transform);
+
+    let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
+    println!("{:?}", advice);
+
+    let obligation = parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
+    println!("{:?}", obligation);
+
+    let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+    println!("{:?}", where_statement);
 }
