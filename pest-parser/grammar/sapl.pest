@@ -18,15 +18,15 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 sapl_document = _{ SOI ~ document ~ EOI }
 
-document = { import_statement* ~ schema* ~ policy_element }
+document = _{ import_statement* ~ schema* ~ policy_element }
 
-import_statement = _{ "import" ~ (wildcard_import | library_import | function_import) }
+import_statement = { "import" ~ (wildcard_import | library_import | function_import) }
 
 wildcard_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ "*" }
 
 library_import = { sapl_id ~ ("." ~ sapl_id)* ~ "as" ~ sapl_id }
 
-function_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ sapl_id }
+function_import = { sapl_id ~ ("." ~ sapl_id)* }
 
 schema = { reserved_id ~ ("enforced")? ~ "schema" ~ expression }
 
@@ -65,7 +65,7 @@ policy = {
     "policy" ~ policy_name ~ entitlement ~ target_expression? ~ where_statement? ~ obligation* ~ advice* ~ transformation*
 }
 
-target_expression = { !("where" | "transform" | "advice" | "obligation") ~ expression }
+target_expression = { !("policy" | "where" | "transform" | "advice" | "obligation") ~ expression }
 
 expression = _{ lazy_or }
 

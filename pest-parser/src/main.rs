@@ -16,45 +16,61 @@
 
 use pest::Parser;
 use pest_parser::parse_sapl_file;
+use pest_parser::parse_sapl_file_new;
 use pest_parser::Rule;
 use pest_parser::SaplParser;
 
 fn main() {
-    let parse_result = SaplParser::parse(
-        Rule::sapl_document,
-        "policy \"policy 1\" deny transform resource.content |- filter.blacken",
-    )
-    .unwrap();
-    let tokens = parse_result.tokens();
+    // let parse_result = SaplParser::parse(
+    //     Rule::sapl_document,
+    //     "policy \"policy 1\" deny transform resource.content |- filter.blacken",
+    // )
+    // .unwrap();
+    // let parse_result = SaplParser::parse(
+    //     Rule::sapl_document,
+    // "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny",
+    // )
+    // .unwrap();
+    // let tokens = parse_result.tokens();
+    //
+    // for token in tokens {
+    //     println!("{:?}", token);
+    // }
 
-    for token in tokens {
-        println!("{:?}", token);
-    }
+    // let policy = parse_sapl_file("policy \"policy 1\" deny");
+    // println!("{:?}", policy);
+    //
+    let policy_new = parse_sapl_file_new("policy \"policy 1\" permit");
+    println!("{:?}", policy_new);
+    println!();
+    let policy_set_new = parse_sapl_file_new("set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny");
+    println!("{:?}", policy_set_new);
 
-    let policy = parse_sapl_file("policy \"policy 1\" deny");
-    println!("{:?}", policy);
+    println!();
+    let policy_set_new = parse_sapl_file_new("import filter.blacken import filter as filter import filter as filter import filter.* import sapl.pip.http.* set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny a == b && c == d | e > f");
+    println!("{:?}", policy_set_new);
 
-    let policy_set = parse_sapl_file(
-        "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
-    );
-    println!("{:?}", policy_set);
-
-    let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
-    println!("{:?}", import);
-
-    let schema = parse_sapl_file("subject schema aSubjectSchema policy \"policy schema\" deny");
-    println!("{:?}", schema);
-
-    let transform =
-        parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
-    println!("{:?}", transform);
-
-    let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
-    println!("{:?}", advice);
-
-    let obligation = parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
-    println!("{:?}", obligation);
-
-    let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
-    println!("{:?}", where_statement);
+    // let policy_set = parse_sapl_file(
+    //     "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
+    // );
+    // println!("{:?}", policy_set);
+    //
+    // let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
+    // println!("{:?}", import);
+    //
+    // let schema = parse_sapl_file("subject schema aSubjectSchema policy \"policy schema\" deny");
+    // println!("{:?}", schema);
+    //
+    // let transform =
+    //     parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
+    // println!("{:?}", transform);
+    //
+    // let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
+    // println!("{:?}", advice);
+    //
+    // let obligation = parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
+    // println!("{:?}", obligation);
+    //
+    // let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+    // println!("{:?}", where_statement);
 }

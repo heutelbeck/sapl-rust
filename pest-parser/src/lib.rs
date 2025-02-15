@@ -26,9 +26,10 @@ use pest_derive::Parser;
 #[grammar = "grammar/sapl.pest"]
 pub struct SaplParser;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum Entitlement {
     Permit,
+    #[default]
     Deny,
 }
 
@@ -44,8 +45,9 @@ impl Entitlement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum CombiningAlgorithm {
+    #[default]
     DenyOverrides,
     PermitOverrides,
     FirstApplicable,
@@ -97,17 +99,189 @@ impl ReservedId {
         }
     }
 }
-/*
-pub fn serialize_sapldocument(sapl: &SaplDocument) -> String {
-    use SaplDocument::*;
 
-    match sapl {
-        PolicySet => format!("PolicySet:"),
-        Policy(_p) => format!("null"),
-        String(s) => format!("{}", s),
-        Entitlement(e) => format!("{:?}", e),
+#[derive(Debug)]
+pub enum Import {
+    Function(Vec<String>),
+    Library { lhs: Vec<String>, rhs: Vec<String> },
+    Wildcard(String),
+}
+
+impl Import {
+    fn new(pair: pest::iterators::Pair<Rule>) -> Option<Self> {
+        fn parse(pair: pest::iterators::Pair<Rule>) -> Import {
+            match pair.as_rule() {
+                Rule::function_import => todo!(),
+                Rule::library_import => todo!(),
+                Rule::wildcard_import => todo!(),
+                rule => unreachable!(
+                    "Sapl::parse expected function_import, library_import or wildcard_import, found {:?}",
+                    rule
+                ),
+            }
+        }
+
+        match pair.as_rule() {
+            Rule::import_statement => Some(Import::Wildcard("Das ist ein Test".to_string())),
+            _ => None,
+        }
     }
-}*/
+}
+
+#[derive(Debug, Default)]
+pub struct PolicySet {
+    imports: Option<Vec<Import>>,
+    name: String,
+    combining_algorithm: CombiningAlgorithm,
+    policies: Vec<Policy>,
+}
+
+impl PolicySet {
+    fn new(pairs: pest::iterators::Pairs<Rule>, imports: Option<Vec<Import>>) -> Self {
+        let mut policy_set = PolicySet {
+            imports,
+            ..Default::default()
+        };
+
+        for pair in pairs {
+            let mut imports = None;
+            match pair.as_rule() {
+                Rule::policy_set_name => {
+                    let mut name = pair.as_str().to_string();
+                    name.retain(|c| c != '\"');
+                    policy_set.name = name;
+                }
+                Rule::combining_algorithm => {
+                    policy_set.combining_algorithm = CombiningAlgorithm::new(pair.as_str())
+                }
+                Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner(), imports)),
+                rule => unreachable!(
+                    "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {:?}",
+                    rule
+                ),
+            }
+        }
+
+        policy_set
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Policy {
+    imports: Option<Vec<Import>>,
+    name: String,
+    entitlement: Entitlement,
+}
+
+impl Policy {
+    fn new(pairs: pest::iterators::Pairs<Rule>, imports: Option<Vec<Import>>) -> Self {
+        let mut policy = Policy {
+            imports,
+            ..Default::default()
+        };
+
+        for pair in pairs {
+            match pair.as_rule() {
+                Rule::policy_name => {
+                    let mut name = pair.as_str().to_string();
+                    name.retain(|c| c != '\"');
+                    policy.name = name;
+                }
+                Rule::entitlement => policy.entitlement = Entitlement::new(pair.as_str()),
+                rule => unreachable!(
+                    "Sapl::parse expected policy_name or entitlement, found {:?}",
+                    rule
+                ),
+            }
+        }
+
+        policy
+    }
+}
+
+#[derive(Debug)]
+pub enum NewSaplDocument {
+    Policy(Policy),
+    PolicySet(PolicySet),
+    Import(Import),
+}
+
+pub fn parse_sapl_file_new(file: &str) -> Result<NewSaplDocument, Error<Rule>> {
+    let pair = SaplParser::parse(Rule::sapl_document, file)?
+        .next()
+        .unwrap();
+
+    use pest::iterators::Pair;
+    println!("{:?}", pair);
+
+    let mut imports: Option<Vec<Import>> = None;
+
+    // for pair in pairs.clone() {
+    //     if pair.as_rule() == Rule::import_statement {
+    //         if let Some(ref mut i) = imports {
+    //             i.push(Import::Wildcard("follow".to_string()));
+    //         } else {
+    //             imports = Some(vec![Import::Wildcard("init".to_string())]);
+    //         }
+    //     } else {
+    //         break;
+    //     }
+    // }
+
+    // while pair.as_rule() == Rule::import_statement {
+    //     println!("import loop reached");
+    //     if let Some(ref mut i) = imports {
+    //         i.push(Import::Wildcard("follow".to_string()));
+    //     } else {
+    //         imports = Some(vec![Import::Wildcard("init".to_string())]);
+    //     }
+    //     pair.into_inner().next().unwrap();
+    // }
+
+    // fn parse_value(pair: Pair<Rule>) -> NewSaplDocument {
+    //     let mut imports = None;
+    //
+    //     match pair.as_rule() {
+    //         Rule::policy => NewSaplDocument::Policy(Policy::new(pair.into_inner(), imports)),
+    //         Rule::policy_set => {
+    //             NewSaplDocument::PolicySet(PolicySet::new(pair.into_inner(), imports))
+    //         }
+    //         // Rule::import_statement => {
+    //         //     match imports {
+    //         //         None => {
+    //         //             let import: Vec<Import> =
+    //         //                 vec![Import::Wildcard("Das ist ein Test 123".to_string())];
+    //         //             imports = Some(import);
+    //         //         }
+    //         //         Some(mut i) => i.push(Import::Wildcard("Zu einfach".to_string())),
+    //         //     }
+    //         //     println!("Import is coming");
+    //         // }
+    //         rule => unreachable!(
+    //             "Sapl::parse expected import_statement, schema, policy_set or policy, found {:?}",
+    //             rule
+    //         ),
+    //     }
+    // }
+    //
+    // Ok(parse_value(pair))
+
+    println!("{:?}", pair);
+    match pair.as_rule() {
+        Rule::policy => Ok(NewSaplDocument::Policy(Policy::new(
+            pair.into_inner(),
+            imports,
+        ))),
+        Rule::policy_set => Ok(NewSaplDocument::PolicySet(PolicySet::new(
+            pair.into_inner(),
+            imports,
+        ))),
+        rule => unreachable!(
+            "Sapl::parse expected policy_set or policy, found {:?}",
+            rule
+        ),
+    }
+}
 
 #[derive(Debug)]
 pub enum SaplDocument<'a> {
@@ -230,21 +404,33 @@ mod tests {
 
     #[test]
     fn parse_simple_policy() {
-        let policy = parse_sapl_file("policy \"policy 1\" deny");
+        let policy = parse_sapl_file_new("policy \"policy 1\" deny");
         assert!(policy.is_ok());
     }
 
     #[test]
     fn parse_policy_set() {
-        let policy_set = parse_sapl_file(
+        let policy_set = parse_sapl_file_new(
             "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
         );
         assert!(policy_set.is_ok());
     }
 
     #[test]
-    fn parse_import_statement() {
-        let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
+    fn parse_library_import() {
+        let import = parse_sapl_file_new("import filter as filter policy \"policy\" permit");
+        assert!(import.is_ok());
+    }
+
+    #[test]
+    fn parse_function_import() {
+        let import = parse_sapl_file_new("import sapl.pip.http.get policy \"policy\" permit");
+        assert!(import.is_ok());
+    }
+
+    #[test]
+    fn parse_wildcard_import() {
+        let import = parse_sapl_file_new("import filter.* policy \"policy\" permit");
         assert!(import.is_ok());
     }
 
