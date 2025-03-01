@@ -28,11 +28,11 @@ library_import = { sapl_id ~ ("." ~ sapl_id)* ~ "as" ~ sapl_id }
 
 function_import = { sapl_id ~ ("." ~ sapl_id)* }
 
-schema = { reserved_id ~ ("enforced")? ~ "schema" ~ expression }
+schema = { sapl_id ~ ("enforced")? ~ "schema" ~ expression }
 
 policy_element = _{ policy_set | policy }
 
-policy_set = { "set" ~ policy_set_name ~ combining_algorithm ~ ("for" ~ target_expression)? ~ (value_definition ~ ";")* ~ policy+ }
+policy_set = { "set" ~ policy_set_name ~ combining_algorithm ~ ("for" ~ target_expression)? ~ (variable_assignment ~ ";")* ~ policy+ }
 
 combining_algorithm = {
     "deny-overrides"
@@ -45,9 +45,11 @@ combining_algorithm = {
 
 policy_set_name = { string }
 
-statement = { !("where" | "transform" | "advice" | "obligation") ~ (value_definition | expression) ~ ";"* }
+statement = _{ !("where" | "transform" | "advice" | "obligation") ~ (variable_assignment | condition) ~ ";"* }
 
-value_definition = _{ "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+variable_assignment = { "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+
+condition = { expression }
 
 entitlement = { "permit" | "deny" }
 
@@ -67,31 +69,55 @@ policy = {
 
 target_expression = { !("policy" | "where" | "transform" | "advice" | "obligation") ~ expression }
 
-expression = _{ lazy_or }
+expression = _{ atom ~ (op ~ atom)* }
 
-lazy_or = _{ lazy_and ~ ("||" ~ lazy_and)* }
+atom = _{ unary_expression? ~ primary }
 
-lazy_and = _{ eager_or ~ ("&&" ~ eager_or)* }
+primary = _{ basic_expression | "(" ~ expression ~ ")" }
 
-eager_or = _{ exclusive_or ~ ("|" ~ exclusive_or)* }
+op = _{ lazy_or | lazy_and | eager_or | exclusive_or | eager_and | equal | not_equal | unknown | comparison | less_equal | greater_equal | less | greater | addition | subtract | mul | div | modulo }
 
-exclusive_or = _{ eager_and ~ ("^" ~ eager_and)* }
+lazy_or = { "||" }
 
-eager_and = _{ equality ~ ("&" ~ equality)* }
+lazy_and = { "&&" }
 
-equality = _{ comparison ~ (("==" | "!=" | "=~") ~ comparison)? }
+eager_or = { "|" }
 
-comparison = _{ addition ~ (("<" | "<=" | ">" | ">=" | "in") ~ addition)? }
+exclusive_or = { "^" }
 
-addition = _{ multiplication ~ (("+" | "-") ~ multiplication)* }
+eager_and = { "&" }
 
-multiplication = _{ unary_expression ~ (("*" | "/" | "%") ~ unary_expression)* }
+equal = { "==" }
 
-unary_expression = _{ ("!" | "-" | "+") ~ unary_expression | basic_expression }
+not_equal = { "!=" }
+
+unknown = { "=~" }
+
+comparison = { "in" }
+
+less = { "<" }
+
+greater = { ">" }
+
+less_equal = { "<=" }
+
+greater_equal = { ">=" }
+
+addition = { "+" }
+
+subtract = { "-" }
+
+mul = { "*" }
+
+div = { "/" }
+
+modulo = { "%" }
+
+unary_expression = { ("!" | "-" | "+") }
 
 basic_expression = _{ basic ~ (FILTER ~ filter_component | SUBTEMPLATE ~ basic_expression)? }
 
-filter_component = _{ "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
+filter_component = { "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
 
 filter_statement = { "each"? ~ "@"? ~ ":" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? }
 
@@ -107,15 +133,19 @@ basic = _{
   | "@" ~ step*
 }
 
-value = { object | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
+value = _{ object | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
 
-object = { "{" ~ (pair ~ ("," ~ pair)*)? ~ "}" }
+object = _{ "{" ~ (pair ~ ("," ~ pair)*)? ~ "}" }
 
 pair = { string ~ ":" ~ expression }
 
 array = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 
-number_literal = { JSONNUMBER }
+number_literal = _{ integer | float }
+
+integer = { ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ !"." }
+
+float = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 
 JSONNUMBER = { ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 
@@ -137,13 +167,11 @@ subscript = { string | "*" | signed_number | signed_number? ~ ":" ~ signed_numbe
 
 signed_number = { "-"? ~ JSONNUMBER }
 
-sapl_id = @{ id | reserved_id }
+sapl_id = @{ (( "subject" | "action" | "resource" | "environment" ) ~ "." )? ~ id }
 
 id = { "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
 
-reserved_id = @{ "subject" | "action" | "resource" | "environment" }
-
-string = _{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+string = { "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
 
 FILTER = { "|-" }
 
