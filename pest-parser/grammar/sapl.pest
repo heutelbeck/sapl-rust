@@ -28,7 +28,9 @@ library_import = { sapl_id ~ ("." ~ sapl_id)* ~ "as" ~ sapl_id }
 
 function_import = { sapl_id ~ ("." ~ sapl_id)* }
 
-schema = { sapl_id ~ ("enforced")? ~ "schema" ~ expression }
+schema = { schema_entry }
+
+schema_entry = { sapl_id ~ ("enforced")? ~ "schema" ~ expression }
 
 policy_element = _{ policy_set | policy }
 
@@ -64,7 +66,7 @@ advice = { ("advice" ~ expression) }
 obligation = { ("obligation" ~ expression) }
 
 policy = {
-    "policy" ~ policy_name ~ entitlement ~ target_expression? ~ where_statement? ~ obligation* ~ advice* ~ transformation*
+    "policy" ~ policy_name ~ entitlement ~ target_expression? ~ where_statement? ~ obligation? ~ advice? ~ transformation?
 }
 
 target_expression = { !("policy" | "where" | "transform" | "advice" | "obligation") ~ expression }

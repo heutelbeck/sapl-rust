@@ -14,9 +14,23 @@
     under the License.
 */
 
+mod advice;
 mod decision;
+mod expr;
+mod import;
+mod obligation;
+mod schema;
+mod transformation;
+mod where_statement;
 
+pub use crate::advice::Advice;
 pub use crate::decision::Decision;
+pub use crate::expr::{Expr, Op};
+pub use crate::import::Import;
+pub use crate::obligation::Obligation;
+pub use crate::schema::Schema;
+pub use crate::transformation::Transformation;
+pub use crate::where_statement::WhereStatement;
 
 use pest::error::Error;
 use pest::{pratt_parser::PrattParser, Parser};
@@ -96,78 +110,11 @@ impl CombiningAlgorithm {
     }
 }
 
-#[derive(Debug)]
-pub enum Import {
-    Function(String),
-    Library { name: String, alias: String },
-    Wildcard(String),
-}
-
-impl Import {
-    fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
-        fn parse_import_statement_sapl_ids(pair: pest::iterators::Pair<Rule>) -> String {
-            match pair.as_rule() {
-                Rule::sapl_id => pair.as_str().to_string(),
-                rule => unreachable!(
-                    "parse_import_statement_sapl_ids expected sapl_id, found {:?}",
-                    rule
-                ),
-            }
-        }
-
-        match pair.as_rule() {
-            Rule::function_import => {
-                let sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                Import::Function(sapl_ids.join(".").to_string())
-            }
-            Rule::library_import => {
-                let mut sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                let alias = sapl_ids.pop().unwrap();
-                Import::Library {
-                    name: sapl_ids.join("."),
-                    alias,
-                }
-            }
-            Rule::wildcard_import => {
-                let sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                let mut import = sapl_ids.join(".").to_string();
-                import.push_str(".*");
-                Import::Wildcard(import)
-            }
-            rule => unreachable!(
-            "Sapl::parse expected function_import, library_import or wildcard_import, found {:?}",
-            rule
-        ),
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct PolicySet {
-    imports: Option<Vec<Import>>,
-    name: String,
-    combining_algorithm: CombiningAlgorithm,
-    policies: Vec<Policy>,
-}
-
 impl PolicySet {
-    fn new(pairs: pest::iterators::Pairs<Rule>, imports: Option<Vec<Import>>) -> Self {
-        let mut policy_set = PolicySet {
-            imports,
-            ..Default::default()
-        };
+    fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
+        let mut policy_set = PolicySet::default();
 
         for pair in pairs {
-            let mut imports = None;
             match pair.as_rule() {
                 Rule::policy_set_name => {
                     let mut name = pair.as_str().to_string();
@@ -177,7 +124,7 @@ impl PolicySet {
                 Rule::combining_algorithm => {
                     policy_set.combining_algorithm = CombiningAlgorithm::new(pair.as_str())
                 }
-                Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner(), imports)),
+                Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner())),
                 rule => unreachable!(
                     "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {:?}",
                     rule
@@ -189,19 +136,9 @@ impl PolicySet {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Policy {
-    imports: Option<Vec<Import>>,
-    name: String,
-    entitlement: Entitlement,
-}
-
 impl Policy {
-    fn new(pairs: pest::iterators::Pairs<Rule>, imports: Option<Vec<Import>>) -> Self {
-        let mut policy = Policy {
-            imports,
-            ..Default::default()
-        };
+    fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
+        let mut policy = Policy::default();
 
         for pair in pairs {
             match pair.as_rule() {
@@ -211,6 +148,32 @@ impl Policy {
                     policy.name = name;
                 }
                 Rule::entitlement => policy.entitlement = Entitlement::new(pair.as_str()),
+                Rule::target_expression => {
+                    policy.target_exp = Some(Box::new(Expr::parse(pair.clone().into_inner())))
+                }
+                Rule::where_statement => {
+                    policy.where_statement = Some(
+                        pair.clone()
+                            .into_inner()
+                            .map(WhereStatement::parse)
+                            .collect(),
+                    );
+                }
+                Rule::obligation => {
+                    policy.obligation =
+                        Some(pair.clone().into_inner().map(Obligation::parse).collect());
+                }
+                Rule::advice => {
+                    policy.advice = Some(pair.clone().into_inner().map(Advice::parse).collect());
+                }
+                Rule::transformation => {
+                    policy.transformation = Some(
+                        pair.clone()
+                            .into_inner()
+                            .map(Transformation::parse)
+                            .collect(),
+                    );
+                }
                 rule => unreachable!(
                     "Sapl::parse expected policy_name or entitlement, found {:?}",
                     rule
@@ -223,27 +186,42 @@ impl Policy {
 }
 
 #[derive(Debug)]
+pub struct SaplDocument {
+    imports: Option<Vec<Import>>,
+    schemas: Option<Vec<Schema>>,
+    body: PolicyType,
+}
+
+#[derive(Debug)]
 pub enum PolicyType {
     Policy(Policy),
     PolicySet(PolicySet),
 }
 
-#[derive(Debug)]
-pub struct SaplDocument {
-    imports: Option<Vec<Import>>,
-    
+#[derive(Debug, Default)]
+pub struct PolicySet {
+    name: String,
+    combining_algorithm: CombiningAlgorithm,
+    policies: Vec<Policy>,
+}
+
+#[derive(Debug, Default)]
+pub struct Policy {
+    name: String,
+    entitlement: Entitlement,
+    target_exp: Option<Box<Expr>>,
+    where_statement: Option<Vec<WhereStatement>>,
+    obligation: Option<Vec<Obligation>>,
+    advice: Option<Vec<Advice>>,
+    transformation: Option<Vec<Transformation>>,
 }
 
 pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
-    let mut pairs = SaplParser::parse(Rule::sapl_document, file)?;
+    let pairs = SaplParser::parse(Rule::sapl_document, file)?;
 
-    use pest::iterators::Pair;
-    //println!("{:?}", pair);
-
+    //parse imports
     let mut imports: Option<Vec<Import>> = None;
-
     for p in pairs.clone() {
-        //println!("Iteration... {:#?}", p.as_rule());
         if p.as_rule() == Rule::import_statement {
             if let Some(ref mut i) = imports {
                 i.push(Import::parse(p.into_inner().next().unwrap()));
@@ -253,43 +231,40 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
         }
     }
 
-    //println!("imports: {:#?}", imports);
-
-    while pairs.next().unwrap().as_rule() == Rule::import_statement {
-        println!("Getroffen")
-        pairs.next().unwrap();
-    }
-
-    fn parse_value(pair: Pair<Rule>, imports: Option<Vec<Import>>) -> SaplDocument {
-        match pair.as_rule() {
-            Rule::policy => SaplDocument::Policy(Policy::new(pair.into_inner(), imports)),
-            Rule::policy_set => {
-                SaplDocument::PolicySet(PolicySet::new(pair.into_inner(), imports))
+    //parse schemas
+    let mut schemas: Option<Vec<Schema>> = None;
+    for p in pairs.clone() {
+        if p.as_rule() == Rule::schema {
+            if let Some(ref mut i) = schemas {
+                i.push(Schema::parse(p.into_inner().next().unwrap()));
+            } else {
+                schemas = Some(vec![Schema::parse(p.into_inner().next().unwrap())]);
             }
-            rule => unreachable!(
-                "Sapl::parse expected import_statement, schema, policy_set or policy, found {:?}",
-                rule
-            ),
         }
     }
 
-    Ok(parse_value(pairs.next().unwrap(), imports))
+    //parse policy or policy_set
+    fn parse(pairs: pest::iterators::Pairs<Rule>) -> PolicyType {
+        for pair in pairs {
+            match pair.as_rule() {
+                Rule::policy => {
+                    return PolicyType::Policy(Policy::new(pair.into_inner()));
+                }
+                Rule::policy_set => {
+                    return PolicyType::PolicySet(PolicySet::new(pair.into_inner()));
+                }
+                _rule => {}
+            }
+        }
+        unreachable!("Sapl::parse expected policy_set or policy not found");
+    }
 
-    // println!("{:?}", pair);
-    // match pair.as_rule() {
-    //     Rule::policy => Ok(NewSaplDocument::Policy(Policy::new(
-    //         pair.into_inner(),
-    //         imports,
-    //     ))),
-    //     Rule::policy_set => Ok(NewSaplDocument::PolicySet(PolicySet::new(
-    //         pair.into_inner(),
-    //         imports,
-    //     ))),
-    //     rule => unreachable!(
-    //         "Sapl::parse expected policy_set or policy, found {:?}",
-    //         rule
-    //     ),
-    // }
+    //return parsed SaplDocument
+    Ok(SaplDocument {
+        imports,
+        schemas,
+        body: parse(pairs),
+    })
 }
 
 #[cfg(test)]
@@ -389,6 +364,11 @@ mod tests {
         assert!(advice.is_ok());
     }
 
+    #[test]
+    fn parse_advice_with_pairs() {
+        let advice = parse_sapl_file("policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }");
+        assert!(advice.is_ok());
+    }
     #[test]
     fn parse_transformation() {
         let transformation =

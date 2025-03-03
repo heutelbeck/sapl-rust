@@ -14,47 +14,76 @@
     under the License.
 */
 
-use pest::Parser;
 use pest_parser::parse_sapl_file;
-use pest_parser::parse_sapl_file_new;
-use pest_parser::Rule;
-use pest_parser::SaplParser;
 
 fn main() {
-    // let parse_result = SaplParser::parse(
-    //     Rule::sapl_document,
-    //     "policy \"policy 1\" deny transform resource.content |- filter.blacken",
-    // )
-    // .unwrap();
-    // let parse_result = SaplParser::parse(
-    //     Rule::sapl_document,
-    // "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny",
-    // )
-    // .unwrap();
-    // let tokens = parse_result.tokens();
-    //
-    // for token in tokens {
-    //     println!("{:?}", token);
-    // }
+    {
+        let policy_new = parse_sapl_file("policy \"policy 1\" permit");
+        println!("{:#?}", policy_new);
+        println!();
+    }
+    {
+        let policy_set_new = parse_sapl_file("set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny");
+        println!("{:#?}", policy_set_new);
+        println!();
+    }
+    {
+        let policy_set_new = parse_sapl_file("import filter.blacken import filter as filter import filter as filter import filter.* import sapl.pip.http.* set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" permit a == b && c == d | e > f");
+        println!("{:#?}", policy_set_new);
+    }
+    {
+        let schema = parse_sapl_file("subject schema aSubjectSchema policy \"policy schema\" deny");
+        println!("{:#?}", schema);
+        println!();
+    }
 
-    // let policy = parse_sapl_file("policy \"policy 1\" deny");
-    // println!("{:?}", policy);
-    //
-    let policy_new = parse_sapl_file_new("policy \"policy 1\" permit");
-    println!("{:?}", policy_new);
-    println!();
-    let policy_set_new = parse_sapl_file_new("set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny");
-    println!("{:?}", policy_set_new);
-
-    println!();
-    let policy_set_new = parse_sapl_file_new("import filter.blacken import filter as filter import filter as filter import filter.* import sapl.pip.http.* set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny a == b && c == d | e > f");
-    println!("{:?}", policy_set_new);
-
-    // let policy_set = parse_sapl_file(
-    //     "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
-    // );
-    // println!("{:?}", policy_set);
-    //
+    {
+        let schema = parse_sapl_file(
+            "subject enforced schema 
+    {
+    \"$id\": \"https://example.com/person.schema.json\",
+    \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",
+    \"title\": \"Person\",
+    \"type\": \"object\",
+    \"properties\": {
+        \"firstName\": {
+            \"type\": \"string\",
+            \"description\": \"The person's first name.\"
+        },
+        \"lastName\": {
+            \"type\": \"string\",
+            \"description\": \"The person's last name.\"
+        },
+        \"age\": {
+            \"description\": \"Age in years which must be equal to or greater than zero.\",
+            \"type\": \"integer\",
+            \"minimum\": 0
+        }
+    }
+    } policy \"policy schema\" deny",
+        );
+        println!("{:#?}", schema);
+        println!();
+    }
+    {
+        let transformation =
+            parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
+        println!("{:#?}", transformation);
+        println!();
+    }
+    {
+        let transformation =
+            parse_sapl_file("policy \"test\" permit transform { \"id\": resource.id, \"name\": resource.name,\"phoneNumber\": resource.phoneNumber}");
+        println!("{:#?}", transformation);
+        println!();
+    }
+    {
+        let policy_set = parse_sapl_file(
+            "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit",
+        );
+        println!("{:?}", policy_set);
+        println!();
+    }
     // let import = parse_sapl_file("import filter as filter policy \"policy\" permit");
     // println!("{:?}", import);
     //
@@ -64,13 +93,31 @@ fn main() {
     // let transform =
     //     parse_sapl_file("policy \"test\" permit transform resource.content |- filter.blacken");
     // println!("{:?}", transform);
-    //
-    // let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
-    // println!("{:?}", advice);
-    //
-    // let obligation = parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
-    // println!("{:?}", obligation);
-    //
-    // let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
-    // println!("{:?}", where_statement);
+    {
+        let advice = parse_sapl_file("policy \"policy 1\" deny advice \"logging:inform_admin\"");
+        println!("{:#?}", advice);
+        println!();
+    }
+    {
+        let advice = parse_sapl_file("policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }");
+        println!("{:#?}", advice);
+        println!();
+    }
+    {
+        let obligation =
+            parse_sapl_file("policy \"test\" permit obligation \"logging:log_access\"");
+        println!("{:#?}", obligation);
+        println!();
+    }
+    {
+        let obligation =
+            parse_sapl_file("policy \"test\" permit obligation { \"type\": \"sendEmail\", \"recipient\": patient.attendingDoctor, \"subject\": \"Data of your patient \" + (patient.name) + \" was changed.\", \"message\": \"Doctor \" + subject.name + \" changed the data.\" }");
+        println!("{:#?}", obligation);
+        println!();
+    }
+    {
+        let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+        println!("{:#?}", where_statement);
+        println!();
+    }
 }

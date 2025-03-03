@@ -1,0 +1,44 @@
+use crate::{Expr, Rule};
+
+#[derive(Debug)]
+pub enum WhereStatement {
+    Expression(Expr),
+    SaplPair(Vec<WhereStatement>),
+    VariableAssignment(Vec<WhereStatement>),
+    UnaryPlus(Box<WhereStatement>),
+    UnaryMinus(Box<WhereStatement>),
+    LogicalNot(Box<WhereStatement>),
+    Boolean(bool),
+    Integer(i32),
+    Float(f32),
+    SaplId(String),
+    String(String),
+    Filter(String),
+    Id(String),
+}
+
+impl WhereStatement {
+    pub fn parse(pair: pest::iterators::Pair<Rule>) -> WhereStatement {
+        use WhereStatement::*;
+
+        match pair.as_rule() {
+        Rule::condition => Expression(Expr::parse(pair.into_inner())),
+        Rule::variable_assignment => VariableAssignment(pair.into_inner().map(WhereStatement::parse).collect()),
+        Rule::string => WhereStatement::new_string(pair.as_str()),
+        Rule::boolean_literal => WhereStatement::Boolean(pair.as_str().parse().unwrap()),
+        Rule::integer => WhereStatement::Integer(pair.as_str().trim().parse().unwrap()),
+        Rule::float => WhereStatement::Float(pair.as_str().trim().parse().unwrap()),
+        Rule::id => Id(pair.as_str().to_string()),
+        Rule::pair => SaplPair(pair.into_inner().map(WhereStatement::parse).collect()),
+        rule => unreachable!(
+            "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal or pair, found {:?}",
+            rule
+        ),
+    }
+    }
+    fn new_string(src: &str) -> Self {
+        let mut s = src.to_string();
+        s.retain(|c| c != '\"');
+        Self::String(s)
+    }
+}
