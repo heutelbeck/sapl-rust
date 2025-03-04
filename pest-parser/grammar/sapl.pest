@@ -16,6 +16,12 @@
 
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
+COMMENT = _{ line_comment | block_comment }
+
+line_comment = _{ " //" ~ (!"\n" ~ ANY)* }
+
+block_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
 sapl_document = _{ SOI ~ document ~ EOI }
 
 document = _{ import_statement* ~ schema* ~ policy_element }
