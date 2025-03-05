@@ -1,16 +1,17 @@
 use crate::Rule;
 use crate::PRATT_PARSER;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Expr {
     Expr {
-        lhs: Box<Expr>,
+        lhs: Rc<Expr>,
         op: Op,
-        rhs: Box<Expr>,
+        rhs: Rc<Expr>,
     },
-    UnaryPlus(Box<Expr>),
-    UnaryMinus(Box<Expr>),
-    LogicalNot(Box<Expr>),
+    UnaryPlus(Rc<Expr>),
+    UnaryMinus(Rc<Expr>),
+    LogicalNot(Rc<Expr>),
     Boolean(bool),
     Integer(i32),
     Float(f32),
@@ -52,15 +53,15 @@ impl Expr {
                 rule => unreachable!("Expr::parse expected infix operation, found {:?}", rule),
             };
             Expr::Expr {
-                lhs: Box::new(lhs),
+                lhs: Rc::new(lhs),
                 op,
-                rhs: Box::new(rhs),
+                rhs: Rc::new(rhs),
             }
         })
         .map_prefix(|op, rhs| match op.as_str() {
-            "!" => Expr::LogicalNot(Box::new(rhs)),
-            "-" => Expr::UnaryMinus(Box::new(rhs)),
-            "+" => Expr::UnaryPlus(Box::new(rhs)),
+            "!" => Expr::LogicalNot(Rc::new(rhs)),
+            "-" => Expr::UnaryMinus(Rc::new(rhs)),
+            "+" => Expr::UnaryPlus(Rc::new(rhs)),
             _ => unreachable!(),
         })
         .parse(pairs)
@@ -73,13 +74,136 @@ impl Expr {
     }
 
     fn evaluate(&self) -> bool {
-        if let Expr::Expr { lhs, op, rhs } = self {
-            return match (&**lhs, op, &**rhs) {
+        match self {
+            Expr::Boolean(b) => *b,
+            Expr::Expr { lhs, op, rhs } => match (&**lhs, op, &**rhs) {
+                (Expr::Boolean(lhs), Op::Equal, Expr::Boolean(rhs)) => lhs == rhs,
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::Equal,
+                    Expr::Boolean(rhs),
+                ) => lhs.evaluate() == *rhs,
+                (
+                    Expr::Boolean(lhs),
+                    Op::Equal,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => *lhs == rhs.evaluate(),
+                (Expr::Boolean(lhs), Op::NotEqual, Expr::Boolean(rhs)) => lhs != rhs,
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::NotEqual,
+                    Expr::Boolean(rhs),
+                ) => lhs.evaluate() != *rhs,
+                (
+                    Expr::Boolean(lhs),
+                    Op::NotEqual,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => *lhs != rhs.evaluate(),
+                (Expr::Boolean(lhs), Op::EagerAnd, Expr::Boolean(rhs)) => lhs & rhs,
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::EagerAnd,
+                    Expr::Boolean(rhs),
+                ) => lhs.evaluate() & *rhs,
+                (
+                    Expr::Boolean(lhs),
+                    Op::EagerAnd,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => *lhs & rhs.evaluate(),
+                (Expr::Boolean(lhs), Op::EagerOr, Expr::Boolean(rhs)) => lhs | rhs,
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::EagerOr,
+                    Expr::Boolean(rhs),
+                ) => lhs.evaluate() | *rhs,
+                (
+                    Expr::Boolean(lhs),
+                    Op::EagerOr,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => *lhs | rhs.evaluate(),
+                (Expr::Integer(lhs), Op::Equal, Expr::Integer(rhs)) => lhs == rhs,
+                (Expr::Integer(lhs), Op::NotEqual, Expr::Integer(rhs)) => lhs != rhs,
                 (Expr::Integer(lhs), Op::Less, Expr::Integer(rhs)) => lhs < rhs,
-                _ => unreachable!(),
-            };
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: r,
+                    },
+                    Op::Less,
+                    Expr::Integer(i),
+                ) => {
+                    lhs.evaluate()
+                        & Expr::Expr {
+                            lhs: r.clone(),
+                            op: Op::Less,
+                            rhs: Rc::new(Expr::Integer(*i)),
+                        }
+                        .evaluate()
+                }
+                (Expr::Integer(lhs), Op::Greater, Expr::Integer(rhs)) => lhs > rhs,
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::EagerAnd,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => lhs.evaluate() & rhs.evaluate(),
+                (
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Op::EagerOr,
+                    Expr::Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                ) => lhs.evaluate() | rhs.evaluate(),
+                _ => panic!("expr::expr match not implemented for {:#?}", &self),
+            },
+            _ => panic!("expr::evaluation not possible for {:#?}", &self),
         }
-        panic!("expr::evaluation not possible");
     }
 }
 
@@ -113,24 +237,276 @@ mod tests {
     use super::*;
 
     #[test]
+    fn expr_lazy_or() {
+        let mut pair = SaplParser::parse(Rule::expression, "a || b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::lazy_or
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_lazy_and() {
+        let mut pair = SaplParser::parse(Rule::expression, "a && b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::lazy_and
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_eager_or() {
+        let mut pair = SaplParser::parse(Rule::expression, "a | b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::eager_or
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_exclusive_or() {
+        let mut pair = SaplParser::parse(Rule::expression, "a ^ b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::exclusive_or
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_eager_and() {
+        let mut pair = SaplParser::parse(Rule::expression, "a & b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::eager_and
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_equal() {
+        let mut pair = SaplParser::parse(Rule::expression, "a == b");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::equal
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::sapl_id
+        );
+    }
+
+    #[test]
+    fn expr_boolean_literal() {
+        let mut pair = SaplParser::parse(Rule::expression, "false == true");
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::boolean_literal
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::equal
+        );
+        assert_eq!(
+            pair.as_mut().unwrap().next().unwrap().as_rule(),
+            Rule::boolean_literal
+        );
+    }
+
+    #[test]
+    fn boolean_literal_false() {
+        let pair = SaplParser::parse(Rule::boolean_literal, "false");
+        assert_eq!(
+            pair.unwrap().next().unwrap().as_rule(),
+            Rule::boolean_literal,
+        );
+        let pair = SaplParser::parse(Rule::boolean_literal, "FALSE");
+        assert!(pair.is_err());
+        let pair = SaplParser::parse(Rule::boolean_literal, "False");
+        assert!(pair.is_err());
+        let pair = SaplParser::parse(Rule::boolean_literal, "LoremIpsum");
+        assert!(pair.is_err());
+    }
+
+    #[test]
+    fn boolean_literal_true() {
+        let pair = SaplParser::parse(Rule::boolean_literal, "true");
+        assert_eq!(
+            pair.unwrap().next().unwrap().as_rule(),
+            Rule::boolean_literal,
+        );
+        let pair = SaplParser::parse(Rule::boolean_literal, "TRUE");
+        assert!(pair.is_err());
+        let pair = SaplParser::parse(Rule::boolean_literal, "True");
+        assert!(pair.is_err());
+        let pair = SaplParser::parse(Rule::boolean_literal, "LoremIpsum");
+        assert!(pair.is_err());
+    }
+
+    #[test]
+    fn evaluate_boolean_literal_false() {
+        let pair = SaplParser::parse(Rule::target_expression, "false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(!expr.evaluate());
+    }
+    #[test]
+    fn evaluate_boolean_literal_true() {
+        let pair = SaplParser::parse(Rule::target_expression, "true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
+    fn evaluate_bool_eager_and() {
+        let pair = SaplParser::parse(Rule::target_expression, "true & true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "true & false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(!expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "true & true & true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
+    fn evaluate_bool_eager_or() {
+        let pair = SaplParser::parse(Rule::target_expression, "false | true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "false | false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(!expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "false | false | true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
+    fn evaluate_bool_equal() {
+        let pair = SaplParser::parse(Rule::target_expression, "true == true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
+    fn evaluate_bool_not_equal() {
+        let pair = SaplParser::parse(Rule::target_expression, "false != true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
     fn evaluate_integer_comp() {
         let pair = SaplParser::parse(Rule::target_expression, "5 < 10")
             .unwrap()
             .next()
             .unwrap();
         let expr = Expr::parse(pair.into_inner());
-        println!("{:#?}", expr);
+        assert!(expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15 < 20")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
         assert!(expr.evaluate());
     }
 
-    // #[test]
-    // fn evaluate_integer_comp_with_addition() {
-    //     let pair = SaplParser::parse(Rule::target_expression, "5 < 10 + 5")
-    //         .unwrap()
-    //         .next()
-    //         .unwrap();
-    //     let expr = Expr::parse(pair.into_inner());
-    //     println!("{:#?}", expr);
-    //     assert!(expr.evaluate());
-    // }
+    #[test]
+    fn evaluate_integer_comp_eager_and() {
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 10 & 50 > 42")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
+
+    #[test]
+    fn evaluate_integer_comp_eager_or() {
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 1 | 50 > 42")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner());
+        assert!(expr.evaluate());
+    }
 }

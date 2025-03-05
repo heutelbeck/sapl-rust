@@ -189,11 +189,12 @@ impl Policy {
 pub struct SaplDocument {
     imports: Option<Vec<Import>>,
     schemas: Option<Vec<Schema>>,
-    body: PolicyType,
+    body: DocumentBody,
 }
 
 #[derive(Debug)]
-pub enum PolicyType {
+pub enum DocumentBody {
+    //DocumentBody  PolicyBody
     Policy(Policy),
     PolicySet(PolicySet),
 }
@@ -210,7 +211,7 @@ pub struct Policy {
     name: String,
     entitlement: Entitlement,
     target_exp: Option<Box<Expr>>,
-    where_statement: Option<Vec<WhereStatement>>,
+    where_statement: Option<Vec<WhereStatement>>, //plurals
     obligation: Option<Vec<Obligation>>,
     advice: Option<Vec<Advice>>,
     transformation: Option<Vec<Transformation>>,
@@ -244,14 +245,14 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
     }
 
     //parse policy or policy_set
-    fn parse(pairs: pest::iterators::Pairs<Rule>) -> PolicyType {
+    fn parse(pairs: pest::iterators::Pairs<Rule>) -> DocumentBody {
         for pair in pairs {
             match pair.as_rule() {
                 Rule::policy => {
-                    return PolicyType::Policy(Policy::new(pair.into_inner()));
+                    return DocumentBody::Policy(Policy::new(pair.into_inner()));
                 }
                 Rule::policy_set => {
-                    return PolicyType::PolicySet(PolicySet::new(pair.into_inner()));
+                    return DocumentBody::PolicySet(PolicySet::new(pair.into_inner()));
                 }
                 _rule => {}
             }
