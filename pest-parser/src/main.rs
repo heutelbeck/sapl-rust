@@ -36,7 +36,6 @@ fn main() {
         println!("{:#?}", schema);
         println!();
     }
-
     {
         let schema = parse_sapl_file(
             "subject enforced schema 
@@ -119,5 +118,27 @@ fn main() {
         let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
         println!("{:#?}", where_statement);
         println!();
+    }
+    {
+        let policy_with_unvalid_target_expr =
+            parse_sapl_file("policy \"policy 1\" permit false && true || false");
+        if let Ok(sapl_doc) = policy_with_unvalid_target_expr {
+            match sapl_doc.validate() {
+                Ok(()) => println!("Sapl document {} successfully validated.", sapl_doc.name()),
+                Err(msg) => println!("{}", msg),
+            }
+            println!();
+        };
+    }
+    {
+        let policy_with_unvalid_target_expr =
+            parse_sapl_file("policy \"policy 2\" permit false & true | false");
+        if let Ok(sapl_doc) = policy_with_unvalid_target_expr {
+            match sapl_doc.validate() {
+                Ok(()) => println!("Sapl document {} successfully validated.", sapl_doc.name()),
+                Err(msg) => println!("{}", msg),
+            }
+            println!();
+        };
     }
 }

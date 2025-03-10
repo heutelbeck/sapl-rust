@@ -1,5 +1,7 @@
 use crate::Rule;
 use crate::PRATT_PARSER;
+use std::collections::VecDeque;
+use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -17,6 +19,26 @@ pub enum Expr {
     Float(f32),
     SaplId(String),
     String(String),
+}
+
+impl Clone for Expr {
+    fn clone(&self) -> Self {
+        match self {
+            Expr::Expr { lhs, op, rhs } => Expr::Expr {
+                lhs: Rc::clone(lhs),
+                op: op.clone(),
+                rhs: Rc::clone(rhs),
+            },
+            Expr::UnaryPlus(expr) => Expr::UnaryPlus(Rc::clone(expr)),
+            Expr::UnaryMinus(expr) => Expr::UnaryMinus(Rc::clone(expr)),
+            Expr::LogicalNot(expr) => Expr::LogicalNot(Rc::clone(expr)),
+            Expr::Boolean(val) => Expr::Boolean(*val),
+            Expr::Integer(val) => Expr::Integer(*val),
+            Expr::Float(val) => Expr::Float(*val),
+            Expr::SaplId(val) => Expr::SaplId(val.clone()),
+            Expr::String(val) => Expr::String(val.clone()),
+        }
+    }
 }
 
 impl Expr {
@@ -410,6 +432,93 @@ impl Expr {
             )),
         }
     }
+
+    pub fn validate_schema_expr(&self) -> Option<Vec<ValidationErr>> {
+        //TODO needs to be edit after
+        //changing the grammer
+        let check = |e: &Rc<Expr>| -> Option<ValidationErr> {
+            if let Expr::Expr { op, .. } = &**e {
+                match op {
+                    Op::LazyAnd => Some(ValidationErr::LazyAnd),
+                    Op::LazyOr => Some(ValidationErr::LazyOr),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        };
+
+        self.validate(check)
+    }
+
+    pub fn validate_target_expr(&self) -> Option<Vec<ValidationErr>> {
+        let check = |e: &Rc<Expr>| -> Option<ValidationErr> {
+            if let Expr::Expr { op, .. } = &**e {
+                match op {
+                    Op::LazyAnd => Some(ValidationErr::LazyAnd),
+                    Op::LazyOr => Some(ValidationErr::LazyOr),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        };
+
+        self.validate(check)
+    }
+
+    fn validate(
+        &self,
+        check: fn(&Rc<Expr>) -> Option<ValidationErr>,
+    ) -> Option<Vec<ValidationErr>> {
+        let result: Vec<_> = self
+            .iter()
+            .filter_map(|expr: Rc<Expr>| check(&expr))
+            .collect();
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
+    pub fn iter(&self) -> ExprIter {
+        let mut stack = VecDeque::new();
+        stack.push_back(Rc::new(self.clone()));
+        ExprIter { stack }
+    }
+}
+
+pub struct ExprIter {
+    stack: VecDeque<Rc<Expr>>,
+}
+
+impl Iterator for ExprIter {
+    type Item = Rc<Expr>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(node) = self.stack.pop_front() {
+            match &*node {
+                Expr::Expr { lhs, op: _, rhs } => {
+                    self.stack.push_back(Rc::clone(rhs));
+                    self.stack.push_back(Rc::clone(lhs));
+                }
+                Expr::UnaryPlus(expr) | Expr::UnaryMinus(expr) | Expr::LogicalNot(expr) => {
+                    self.stack.push_back(Rc::clone(expr));
+                }
+                Expr::Boolean(_)
+                | Expr::Integer(_)
+                | Expr::Float(_)
+                | Expr::SaplId(_)
+                | Expr::String(_) => {}
+            }
+
+            Some(node)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -432,6 +541,64 @@ pub enum Op {
     Multiplication,
     Division,
     Modulo,
+}
+
+impl Clone for Op {
+    fn clone(&self) -> Self {
+        use Op::*;
+        match self {
+            LazyOr => LazyOr,
+            LazyAnd => LazyAnd,
+            EagerOr => EagerOr,
+            ExclusiveOr => ExclusiveOr,
+            EagerAnd => EagerAnd,
+            Equal => Equal,
+            NotEqual => NotEqual,
+            Unknown => Unknown,
+            Comparison => Comparison,
+            Less => Less,
+            Greater => Greater,
+            LessEqual => LessEqual,
+            GreaterEqual => GreaterEqual,
+            Addition => Addition,
+            Subtract => Subtract,
+            Multiplication => Multiplication,
+            Division => Division,
+            Modulo => Modulo,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ValidationErr {
+    LazyAnd,
+    LazyOr,
+    AttributeFinderStep,
+    HeadAttributeFingerStep,
+    BasicEnvironmentAttribute,
+    BasicEnvironmentHeadAttribute,
+}
+
+impl Display for ValidationErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ValidationErr::*;
+
+        write!(
+            f,
+            "{}",
+            match &self {
+                LazyAnd => "Lazy and (&&) is not allowed, please use eager and (&) instead.",
+                LazyOr => "Lazy or (||) is not allowed, please use eager or (|) instead.",
+                AttributeFinderStep => "Attribute access () is forbidden",
+                HeadAttributeFingerStep =>
+                    "HeadAttributeFinderStep is not allowed in target expression.",
+                BasicEnvironmentAttribute =>
+                    "BasicEnvironmentAttribute is not allowed in target expression.",
+                BasicEnvironmentHeadAttribute =>
+                    "BasicEnvironmentHeadAttribute is not allowed in target expression.",
+            }
+        )
+    }
 }
 
 #[cfg(test)]
@@ -754,5 +921,55 @@ mod tests {
         let expr = Expr::parse(pair.into_inner()).evaluate();
         assert!(expr.is_ok());
         assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn validate_target_expr_without_error() {
+        let pair = SaplParser::parse(Rule::target_expression, "false | 5 < 20 & 1 > 50 | true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_none());
+    }
+
+    #[test]
+    fn validate_target_expr_lazy_and() {
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 20 && 1 > 50")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(Some(ValidationErr::LazyAnd), validation_result.next());
+        assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn validate_target_expr_lazy_or() {
+        let pair = SaplParser::parse(Rule::target_expression, "true || false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(Some(ValidationErr::LazyOr), validation_result.next());
+        assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn validate_target_expr_lazy_and_with_lazy_or() {
+        let pair = SaplParser::parse(Rule::target_expression, "5 < 20 && 1 > 50 || false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(Some(ValidationErr::LazyOr), validation_result.next());
+        assert_eq!(Some(ValidationErr::LazyAnd), validation_result.next());
+        assert_eq!(None, validation_result.next());
     }
 }

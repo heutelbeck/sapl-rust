@@ -19,6 +19,7 @@ mod decision;
 mod expr;
 mod import;
 mod obligation;
+mod policy;
 mod schema;
 mod transformation;
 mod where_statement;
@@ -28,6 +29,7 @@ pub use crate::decision::Decision;
 pub use crate::expr::{Expr, Op};
 pub use crate::import::Import;
 pub use crate::obligation::Obligation;
+pub use crate::policy::Policy;
 pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
 pub use crate::where_statement::WhereStatement;
@@ -136,60 +138,29 @@ impl PolicySet {
     }
 }
 
-impl Policy {
-    fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
-        let mut policy = Policy::default();
-
-        for pair in pairs {
-            match pair.as_rule() {
-                Rule::policy_name => {
-                    let mut name = pair.as_str().to_string();
-                    name.retain(|c| c != '\"');
-                    policy.name = name;
-                }
-                Rule::entitlement => policy.entitlement = Entitlement::new(pair.as_str()),
-                Rule::target_expression => {
-                    policy.target_exp = Some(Box::new(Expr::parse(pair.clone().into_inner())))
-                }
-                Rule::where_statement => {
-                    policy.where_statement = Some(
-                        pair.clone()
-                            .into_inner()
-                            .map(WhereStatement::parse)
-                            .collect(),
-                    );
-                }
-                Rule::obligation => {
-                    policy.obligation =
-                        Some(pair.clone().into_inner().map(Obligation::parse).collect());
-                }
-                Rule::advice => {
-                    policy.advice = Some(pair.clone().into_inner().map(Advice::parse).collect());
-                }
-                Rule::transformation => {
-                    policy.transformation = Some(
-                        pair.clone()
-                            .into_inner()
-                            .map(Transformation::parse)
-                            .collect(),
-                    );
-                }
-                rule => unreachable!(
-                    "Sapl::parse expected policy_name or entitlement, found {:?}",
-                    rule
-                ),
-            }
-        }
-
-        policy
-    }
-}
-
 #[derive(Debug)]
 pub struct SaplDocument {
     imports: Option<Vec<Import>>,
     schemas: Option<Vec<Schema>>,
     body: DocumentBody,
+}
+
+impl SaplDocument {
+    pub fn validate(&self) -> Result<(), String> {
+        //TODO Add validation schema
+        if let DocumentBody::Policy(p) = &self.body {
+            p.validate()
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match &self.body {
+            DocumentBody::Policy(p) => &p.name,
+            DocumentBody::PolicySet(ps) => &ps.name,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -201,20 +172,9 @@ pub enum DocumentBody {
 
 #[derive(Debug, Default)]
 pub struct PolicySet {
-    name: String,
+    pub name: String,
     combining_algorithm: CombiningAlgorithm,
     policies: Vec<Policy>,
-}
-
-#[derive(Debug, Default)]
-pub struct Policy {
-    name: String,
-    entitlement: Entitlement,
-    target_exp: Option<Box<Expr>>,
-    where_statement: Option<Vec<WhereStatement>>, //plurals
-    obligation: Option<Vec<Obligation>>,
-    advice: Option<Vec<Advice>>,
-    transformation: Option<Vec<Transformation>>,
 }
 
 pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
