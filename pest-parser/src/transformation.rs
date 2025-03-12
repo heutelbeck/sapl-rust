@@ -2,6 +2,7 @@ use crate::Rule;
 
 #[derive(Debug)]
 pub enum Transformation {
+    SaplPairs(Vec<Transformation>),
     SaplPair(Vec<Transformation>),
     String(String),
     SaplId(String),
@@ -15,6 +16,7 @@ impl Transformation {
         match pair.as_rule() {
             Rule::sapl_id => SaplId(pair.as_str().to_string()),
             Rule::string => Self::new_string(pair.as_str()),
+            Rule::pairs => SaplPairs(pair.into_inner().map(Transformation::parse).collect()),
             Rule::pair => SaplPair(pair.into_inner().map(Transformation::parse).collect()),
             Rule::FILTER => Filter(pair.as_str().to_string()),
             Rule::filter_component => {
@@ -30,7 +32,7 @@ impl Transformation {
                 Transformation::SaplId(content.join(".").to_string())
             }
             rule => unreachable!(
-                "parse_transformation expected sapl_id, FILTER or filter_component, found {:?}",
+                "parse_transformation expected pairs, pair, string, sapl_id, FILTER or filter_component, found {:?}",
                 rule
             ),
         }

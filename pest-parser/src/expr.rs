@@ -11,6 +11,11 @@ pub enum Expr {
         op: Op,
         rhs: Rc<Expr>,
     },
+    SaplPairs(Rc<Vec<Expr>>),
+    SaplPair {
+        lhs: Rc<Expr>,
+        rhs: Rc<Vec<Expr>>,
+    },
     UnaryPlus(Rc<Expr>),
     UnaryMinus(Rc<Expr>),
     LogicalNot(Rc<Expr>),
@@ -29,6 +34,11 @@ impl Clone for Expr {
                 op: op.clone(),
                 rhs: Rc::clone(rhs),
             },
+            Expr::SaplPairs(expr) => Expr::SaplPairs(Rc::clone(expr)),
+            Expr::SaplPair { lhs, rhs } => Expr::SaplPair {
+                lhs: Rc::clone(lhs),
+                rhs: Rc::clone(rhs),
+            },
             Expr::UnaryPlus(expr) => Expr::UnaryPlus(Rc::clone(expr)),
             Expr::UnaryMinus(expr) => Expr::UnaryMinus(Rc::clone(expr)),
             Expr::LogicalNot(expr) => Expr::LogicalNot(Rc::clone(expr)),
@@ -43,8 +53,40 @@ impl Clone for Expr {
 
 impl Expr {
     pub fn parse(pairs: pest::iterators::Pairs<Rule>) -> Self {
+        fn parse_pair(pair: pest::iterators::Pair<Rule>) -> Expr {
+            match pair.as_rule() {
+                Rule::pairs => {
+                    Expr::SaplPairs(Rc::new(pair.into_inner().map(parse_pair).collect()))
+                }
+                Rule::pair => {
+                    let mut inner_rules = pair.into_inner();
+                    let lhs = inner_rules.next().unwrap();
+                    Expr::SaplPair {
+                        lhs: Rc::new(Expr::new_string(lhs.as_str())),
+                        rhs: Rc::new(inner_rules.map(parse_pair).collect()),
+                    }
+                }
+                Rule::string => Expr::new_string(pair.as_str()),
+                Rule::boolean_literal => Expr::Boolean(pair.as_str().parse().unwrap()),
+                Rule::integer => Expr::Integer(pair.as_str().trim().parse().unwrap()),
+                Rule::float => Expr::Float(pair.as_str().trim().parse().unwrap()),
+                rule => unreachable!("Expr::parse_pair expected pairs, pair, string, boolean_literal, integer or float, found {:?}", rule),
+            }
+        }
         PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
+            Rule::pairs => {
+                    Expr::SaplPairs(Rc::new(primary.into_inner().map(parse_pair).collect()))
+                    // println!("1234 Rule::pair {:?}", primary);
+                    // let mut inner_rules = primary.into_inner();
+                    // let lhs = inner_rules.next().unwrap();
+                    // println!("lhs: {:?}", lhs);
+                    // let rhs = inner_rules.next().unwrap();
+                    // println!("rhs: {:?}", rhs);
+                    // //Expr::SaplPair { lhs: Rc::new(Expr::parse(lhs.into_inner())), rhs: Rc::new(Expr::parse(inner_rules.next().unwrap().into_inner()))}
+                    // Expr::SaplPair { lhs: Rc::new(Expr::String("Hallo ".to_string())), rhs: Rc::new(Expr::String("Welt!".to_string()))}
+                    // //Expr::SaplId("Hallo Welt".to_string())
+                },
             Rule::sapl_id => Expr::SaplId(primary.as_str().to_string()),
             Rule::string => Expr::new_string(primary.as_str()),
             Rule::boolean_literal => Expr::Boolean(primary.as_str().parse().unwrap()),
@@ -503,6 +545,17 @@ impl Iterator for ExprIter {
                 Expr::Expr { lhs, op: _, rhs } => {
                     self.stack.push_back(Rc::clone(rhs));
                     self.stack.push_back(Rc::clone(lhs));
+                }
+                Expr::SaplPairs(expr) => {
+                    for elem in expr.iter() {
+                        self.stack.push_back(Rc::new(elem.clone()));
+                    }
+                }
+                Expr::SaplPair { lhs, rhs } => {
+                    self.stack.push_back(Rc::clone(lhs));
+                    for elem in rhs.iter() {
+                        self.stack.push_back(Rc::new(elem.clone()));
+                    }
                 }
                 Expr::UnaryPlus(expr) | Expr::UnaryMinus(expr) | Expr::LogicalNot(expr) => {
                     self.stack.push_back(Rc::clone(expr));

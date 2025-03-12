@@ -2,6 +2,7 @@ use crate::Rule;
 
 #[derive(Debug)]
 pub enum Obligation {
+    SaplPairs(Vec<Obligation>),
     SaplPair(Vec<Obligation>),
     Boolean(bool),
     Integer(i32),
@@ -23,9 +24,10 @@ impl Obligation {
             Rule::float => Float(pair.as_str().trim().parse().unwrap()),
             Rule::string => Self::new_string(pair.as_str()),
             Rule::addition => Addition,
+            Rule::pairs => SaplPairs(pair.into_inner().map(Obligation::parse).collect()),
             Rule::pair => SaplPair(pair.into_inner().map(Obligation::parse).collect()),
             rule => unreachable!(
-                "parse_schema expected sapl_id, object, pair or string, found {:?}",
+                "parse_obligation expected sapl_id, pairs, pair, integer, addition, float, boolean_literal or string, found {:?}",
                 rule
             ),
         }

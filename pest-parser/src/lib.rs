@@ -197,9 +197,9 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
     for p in pairs.clone() {
         if p.as_rule() == Rule::schema {
             if let Some(ref mut i) = schemas {
-                i.push(Schema::parse(p.into_inner().next().unwrap()));
+                i.push(Schema::parse(p));
             } else {
-                schemas = Some(vec![Schema::parse(p.into_inner().next().unwrap())]);
+                schemas = Some(vec![Schema::parse(p)]);
             }
         }
     }

@@ -37,6 +37,32 @@ fn main() {
         println!();
     }
     {
+        let schema =
+            parse_sapl_file("subject schema aSubjectSchema == true policy \"policy schema\" deny");
+        println!("{:#?}", schema);
+        println!();
+    }
+    {
+        let schema = parse_sapl_file(
+            "subject schema { \"title\": \"Person\" } policy \"policy schema\" permit",
+        );
+        println!("{:#?}", schema);
+        println!();
+    }
+    {
+        let schema = parse_sapl_file("subject schema { \"firstName\": {             \"type\": \"string\", \"description\": \"The person's first name.\" }} policy \"test pair\" deny",
+        );
+        println!("{:#?}", schema);
+        println!();
+    }
+    {
+        let schema = parse_sapl_file(
+            "subject schema { \"title\": \"Person\", \"tile2\": \"Next\" } policy \"policy schema\" permit",
+        );
+        println!("{:#?}", schema);
+        println!();
+    }
+    {
         let schema = parse_sapl_file(
             "subject enforced schema 
     {
@@ -140,5 +166,11 @@ fn main() {
             }
             println!();
         };
+    }
+    {
+        let schema =
+            parse_sapl_file("subject schema aSubjectSchema == false policy \"policy schema\" deny");
+        println!("{:#?}", schema);
+        println!();
     }
 }

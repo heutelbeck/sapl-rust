@@ -36,7 +36,7 @@ function_import = { sapl_id ~ ("." ~ sapl_id)* }
 
 schema = { schema_entry }
 
-schema_entry = { sapl_id ~ ("enforced")? ~ "schema" ~ expression }
+schema_entry = _{ sapl_id ~ ("enforced")? ~ "schema" ~ expression }
 
 policy_element = _{ policy_set | policy }
 
@@ -141,9 +141,9 @@ basic = _{
   | "@" ~ step*
 }
 
-value = _{ object | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
+value = _{ pairs | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
 
-object = _{ "{" ~ (pair ~ ("," ~ pair)*)? ~ "}" }
+pairs = { "{" ~ (pair ~ ("," ~ pair)*)? ~ "}" }
 
 pair = { string ~ ":" ~ expression }
 

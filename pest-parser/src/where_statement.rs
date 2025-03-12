@@ -3,6 +3,7 @@ use crate::{Expr, Rule};
 #[derive(Debug)]
 pub enum WhereStatement {
     Expression(Expr),
+    SaplPairs(Vec<WhereStatement>),
     SaplPair(Vec<WhereStatement>),
     VariableAssignment(Vec<WhereStatement>),
     UnaryPlus(Box<WhereStatement>),
@@ -29,9 +30,10 @@ impl WhereStatement {
         Rule::integer => WhereStatement::Integer(pair.as_str().trim().parse().unwrap()),
         Rule::float => WhereStatement::Float(pair.as_str().trim().parse().unwrap()),
         Rule::id => Id(pair.as_str().to_string()),
+        Rule::pairs => SaplPairs(pair.into_inner().map(WhereStatement::parse).collect()),
         Rule::pair => SaplPair(pair.into_inner().map(WhereStatement::parse).collect()),
         rule => unreachable!(
-            "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal or pair, found {:?}",
+            "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal, pairs or pair, found {:?}",
             rule
         ),
     }
