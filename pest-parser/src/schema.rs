@@ -16,4 +16,20 @@ impl Schema {
             expr: Rc::new(Expr::parse(inner_rules)),
         }
     }
+
+    pub fn validate(&self, name: &str) -> Option<String> {
+        match &self.expr.validate_schema_expr() {
+            Some(err) => {
+                let mut joined = String::new();
+                joined.push_str(
+                    &format!("The validation of schema in policy {} was not successful for the following reasons:\n", name)
+                );
+                for e in err {
+                    joined.push_str(&format!("* {}\n", e));
+                }
+                Some(joined)
+            }
+            None => None,
+        }
+    }
 }

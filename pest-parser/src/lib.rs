@@ -136,6 +136,10 @@ impl PolicySet {
 
         policy_set
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -147,11 +151,22 @@ pub struct SaplDocument {
 
 impl SaplDocument {
     pub fn validate(&self) -> Result<(), String> {
-        //TODO Add validation schema
-        if let DocumentBody::Policy(p) = &self.body {
-            p.validate()
-        } else {
-            Ok(())
+        let mut result_schema_validation: Result<(), String> = Ok(());
+        if let Some(schemas) = &self.schemas {
+            let schema_results: Vec<_> = schemas
+                .iter()
+                .filter_map(|s| s.validate(self.body.name()))
+                .collect();
+            if !schema_results.is_empty() {
+                result_schema_validation = Err(schema_results.concat());
+            }
+        }
+
+        match (result_schema_validation, &self.body.validate()) {
+            (Ok(_), Ok(_)) => Ok(()),
+            (Ok(_), Err(b)) => Err(b.to_string()),
+            (Err(s), Ok(_)) => Err(s),
+            (Err(s), Err(b)) => Err(s + b),
         }
     }
 
@@ -168,6 +183,22 @@ pub enum DocumentBody {
     //DocumentBody  PolicyBody
     Policy(Policy),
     PolicySet(PolicySet),
+}
+
+impl DocumentBody {
+    fn validate(&self) -> Result<(), String> {
+        match &self {
+            DocumentBody::Policy(p) => p.validate(),
+            DocumentBody::PolicySet(ps) => ps.validate(),
+        }
+    }
+
+    fn name(&self) -> &str {
+        match &self {
+            DocumentBody::Policy(p) => &p.name,
+            DocumentBody::PolicySet(ps) => &ps.name,
+        }
+    }
 }
 
 #[derive(Debug, Default)]

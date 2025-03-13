@@ -70,7 +70,7 @@ impl Policy {
             Some(exp) => match exp.validate_target_expr() {
                 Some(err) => {
                     let mut joined = String::new();
-                    joined.push_str("The validation of target expression was not successful for the following reasons:\n");
+                    joined.push_str(&format!("The validation of target expression in the policy {} was not successful for the following reasons:\n", &self.name));
                     for e in err {
                         joined.push_str(&format!("* {}\n", e));
                     }
