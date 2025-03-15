@@ -180,7 +180,6 @@ impl SaplDocument {
 
 #[derive(Debug)]
 pub enum DocumentBody {
-    //DocumentBody  PolicyBody
     Policy(Policy),
     PolicySet(PolicySet),
 }
@@ -235,7 +234,7 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
         }
     }
 
-    //parse policy or policy_set
+    //parse document body
     fn parse(pairs: pest::iterators::Pairs<Rule>) -> DocumentBody {
         for pair in pairs {
             match pair.as_rule() {

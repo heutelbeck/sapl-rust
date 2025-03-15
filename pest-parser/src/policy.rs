@@ -11,8 +11,8 @@ pub struct Policy {
     pub name: String,
     entitlement: Entitlement,
     target_exp: Option<Box<Expr>>,
-    where_statement: Option<Vec<WhereStatement>>, //plurals
-    obligation: Option<Vec<Obligation>>,
+    where_statements: Option<Vec<WhereStatement>>,
+    obligations: Option<Vec<Obligation>>,
     advice: Option<Vec<Advice>>,
     transformation: Option<Vec<Transformation>>,
 }
@@ -33,7 +33,7 @@ impl Policy {
                     policy.target_exp = Some(Box::new(Expr::parse(pair.clone().into_inner())))
                 }
                 Rule::where_statement => {
-                    policy.where_statement = Some(
+                    policy.where_statements = Some(
                         pair.clone()
                             .into_inner()
                             .map(WhereStatement::parse)
@@ -41,7 +41,7 @@ impl Policy {
                     );
                 }
                 Rule::obligation => {
-                    policy.obligation =
+                    policy.obligations =
                         Some(pair.clone().into_inner().map(Obligation::parse).collect());
                 }
                 Rule::advice => {
