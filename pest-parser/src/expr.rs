@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Expr {
     Expr {
         lhs: Rc<Expr>,
@@ -548,6 +548,53 @@ impl Expr {
         }
     }
 
+    pub fn simplify(&mut self) {
+        use self::Expr::*;
+        use Op::*;
+
+        if let Expr { lhs, op, rhs } = self {
+            match (&**lhs, op, &**rhs) {
+                (Boolean(l), EagerAnd, Boolean(r)) => *self = Boolean(l & r),
+                (
+                    Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    EagerAnd,
+                    Boolean(_),
+                ) => {
+                    let mut result = Expr {
+                        lhs: lhs.eval().into(),
+                        op: EagerAnd,
+                        rhs: rhs.clone(),
+                    };
+                    result.simplify();
+                    *self = result;
+                }
+                (Integer(l), Addition, Integer(r)) => *self = Integer(l + r),
+                (
+                    Expr {
+                        lhs: _,
+                        op: _,
+                        rhs: _,
+                    },
+                    Addition,
+                    Integer(_),
+                ) => {
+                    let mut result = Expr {
+                        lhs: lhs.eval().into(),
+                        op: Addition,
+                        rhs: rhs.clone(),
+                    };
+                    result.simplify();
+                    *self = result;
+                }
+                others => unimplemented!("Expr::simplify needs to implement {:#?}", others),
+            }
+        }
+    }
+
     pub fn iter(&self) -> ExprIter {
         let mut stack = VecDeque::new();
         stack.push_back(Rc::new(self.clone()));
@@ -613,7 +660,7 @@ impl Iterator for ExprIter {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Op {
     LazyOr,
     LazyAnd,
@@ -1062,5 +1109,99 @@ mod tests {
         assert_eq!(Some(ValidationErr::LazyOr), validation_result.next());
         assert_eq!(Some(ValidationErr::LazyAnd), validation_result.next());
         assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn validate_target_expr_attribute_finder_step() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "subject.name == resource.id.<patient.patientRecord>.attendingDoctor;",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(
+            Some(ValidationErr::AttributeFinderStep),
+            validation_result.next()
+        );
+        assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn simplify_boolean_expr_true() {
+        let pair = SaplParser::parse(Rule::target_expression, "true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(true), expr);
+
+        let pair = SaplParser::parse(Rule::target_expression, "true & true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(true), expr);
+
+        let pair = SaplParser::parse(Rule::target_expression, "true & true & true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(true), expr);
+    }
+
+    #[test]
+    fn simplify_boolean_expr_false() {
+        let pair = SaplParser::parse(Rule::target_expression, "false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(false), expr);
+
+        let pair = SaplParser::parse(Rule::target_expression, "true & false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(false), expr);
+
+        let pair = SaplParser::parse(Rule::target_expression, "true & true & false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Boolean(false), expr);
+    }
+
+    #[test]
+    fn simplify_integer_expr() {
+        let pair = SaplParser::parse(Rule::target_expression, "40 + 2")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        expr.simplify();
+        assert_eq!(Expr::Integer(42), expr);
+
+        let pair = SaplParser::parse(Rule::target_expression, "40 + 1 + 1")
+            .unwrap()
+            .next()
+            .unwrap();
+        let mut expr = Expr::parse(pair.into_inner());
+        println!("{:#?}", expr);
+        expr.simplify();
+        println!("{:#?}", expr);
+        assert_eq!(Expr::Integer(42), expr);
     }
 }

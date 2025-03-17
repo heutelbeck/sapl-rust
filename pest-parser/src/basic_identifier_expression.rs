@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum BasicIdentifierExpression {
     Subject,
     Action,
