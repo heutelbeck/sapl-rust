@@ -28,11 +28,11 @@ document = _{ import_statement* ~ schema* ~ policy_element }
 
 import_statement = { "import" ~ (wildcard_import | library_import | function_import) }
 
-wildcard_import = { sapl_id ~ ("." ~ sapl_id)* ~ "." ~ "*" }
+wildcard_import = @{ sapl_id ~ ("." ~ sapl_id)* ~ "." ~ "*" }
 
 library_import = { sapl_id ~ ("." ~ sapl_id)* ~ "as" ~ sapl_id }
 
-function_import = { sapl_id ~ ("." ~ sapl_id)* }
+function_import = @{ sapl_id ~ ("." ~ sapl_id)* }
 
 schema = { schema_entry }
 
@@ -51,7 +51,7 @@ combining_algorithm = {
   | "permit-unless-deny"
 }
 
-policy_set_name = { string }
+policy_set_name = @{ string }
 
 statement = _{ !("where" | "transform" | "advice" | "obligation") ~ (variable_assignment | condition) ~ ";"* }
 
@@ -61,13 +61,15 @@ condition = { expression }
 
 entitlement = { "permit" | "deny" }
 
-policy_name = { string }
+policy_name = @{ string }
 
 where_statement = { ("where" ~ statement ~ (statement)*) }
 
 transformation = { ("transform" ~ expression) }
 
-advice = { ("advice" ~ expression) }
+advice = { advice_entry }
+
+advice_entry = { "advice" ~ expression }
 
 obligation = { ("obligation" ~ expression) }
 
@@ -83,7 +85,7 @@ atom = _{ unary_expression? ~ primary }
 
 primary = _{ basic_expression | "(" ~ expression ~ ")" }
 
-op = _{ lazy_or | lazy_and | eager_or | exclusive_or | eager_and | equal | not_equal | unknown | comparison | less_equal | greater_equal | less | greater | addition | subtract | mul | div | modulo }
+op = _{ lazy_or | lazy_and | eager_or | exclusive_or | eager_and | equal | not_equal | regex | comparison | less_equal | greater_equal | less | greater | addition | subtract | mul | div | modulo }
 
 lazy_or = { "||" }
 
@@ -99,7 +101,7 @@ equal = { "==" }
 
 not_equal = { "!=" }
 
-unknown = { "=~" }
+regex = { "=~" }
 
 comparison = { "in" }
 
@@ -125,21 +127,37 @@ unary_expression = { ("!" | "-" | "+") }
 
 basic_expression = _{ basic ~ (FILTER ~ filter_component | SUBTEMPLATE ~ basic_expression)? }
 
-filter_component = { "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
+filter_component = @{ "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
 
 filter_statement = { "each"? ~ "@"? ~ ":" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? }
 
 arguments = { "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 
 basic = _{
-    "(" ~ expression ~ ")" ~ step*
-  | value ~ step*
-  | sapl_id ~ ("." ~ sapl_id)* ~ arguments ~ step*
-  | "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" ~ step*
-  | "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" ~ step*
-  | sapl_id ~ step*
-  | "@" ~ step*
+    basic_group
+  | basic_value
+  | basic_function
+  | basic_environment_attribute
+  | basic_environment_head_attribute
+  | basic_identifier
+  | basic_relative
 }
+
+basic_group = { "(" ~ expression ~ ")" ~ step* }
+
+basic_value = _{ value ~ step* }
+
+basic_function = { function_identifier ~ arguments ~ step* }
+
+basic_environment_attribute = { "<" ~ function_identifier ~ arguments? ~ ">" ~ step* }
+
+basic_environment_head_attribute = { "|<" ~ function_identifier ~ arguments? ~ ">" ~ step* }
+
+basic_identifier = { sapl_id ~ step* }
+
+basic_relative = { "@" ~ step* }
+
+function_identifier = { id ~ ("." ~ sapl_id)* }
 
 value = _{ pairs | array | number_literal | string_literal | boolean_literal | null_literal | undefined_literal }
 
@@ -151,9 +169,9 @@ array = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 
 number_literal = _{ integer | float }
 
-integer = { ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ !"." }
+integer = @{ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ !"." }
 
-float = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
+float = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 
 JSONNUMBER = { ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ ("." ~ ASCII_DIGIT+)? ~ (("E" | "e") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 
@@ -166,18 +184,36 @@ null_literal = { "null" }
 undefined_literal = { "undefined" }
 
 step = _{
-    "." ~ (sapl_id | string | "*" | "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" | "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">")
+    "." ~ (key_step | escaped_key_step | wildcard_step | attribute_finder_step | head_attribute_finder_step)
   | "[" ~ subscript ~ "]"
-  | ".." ~ ((sapl_id | "[" ~ string ~ "]") | ("*" | "[" ~ "*" ~ "]") | "[" ~ signed_number ~ "]")
+  | ".." ~ (recursive_key_step | recursive_wildcard_step | recursive_index_step)
 }
+
+key_step = @{ sapl_id }
+
+escaped_key_step = @{ string }
+
+wildcard_step = { "*" }
+
+attribute_finder_step = @{ "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
+
+head_attribute_finder_step = @{ "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
+
+recursive_key_step = @{ sapl_id | "[" ~ string ~ "]" }
+
+recursive_wildcard_step = @{ "*" | "[" ~ "*" ~ "]" }
+
+recursive_index_step = @{ "[" ~ signed_number ~ "]" }
 
 subscript = { string | "*" | signed_number | signed_number? ~ ":" ~ signed_number? ~ (":" ~ signed_number)? | "(" ~ expression ~ ")" | "?" ~ "(" ~ expression ~ ")" | signed_number ~ ("," ~ signed_number)* | string ~ ("," ~ string)* }
 
 signed_number = { "-"? ~ JSONNUMBER }
 
-sapl_id = @{ (( "subject" | "action" | "resource" | "environment" ) ~ "." )? ~ id }
+sapl_id = _{ basic_identifier_expression | id }
 
-id = { "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
+basic_identifier_expression = { "subject" | "action" | "resource" | "environment" }
+
+id = @{ "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
 
 string = { "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
 
