@@ -9,44 +9,28 @@ pub enum Import {
 
 impl Import {
     pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
-        fn parse_import_statement_sapl_ids(pair: pest::iterators::Pair<Rule>) -> String {
+        use Import::*;
+
+        fn parse_import_statement_ids(pair: pest::iterators::Pair<Rule>) -> String {
             match pair.as_rule() {
-                Rule::sapl_id => pair.as_str().to_string(),
-                rule => unreachable!(
-                    "parse_import_statement_sapl_ids expected sapl_id, found {:?}",
-                    rule
-                ),
+                Rule::id => pair.as_str().to_string(),
+                rule => unreachable!("parse_import_statement_ids expected id, found {:?}", rule),
             }
         }
 
         match pair.as_rule() {
-            Rule::function_import => {
-                let sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                Import::Function(sapl_ids.join(".").to_string())
-            }
+            Rule::function_import => Import::Function(pair.as_str().to_string()),
             Rule::library_import => {
-                let mut sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                let alias = sapl_ids.pop().unwrap();
+                println!("Hallo Welt 123");
+                let mut ids: Vec<String> =
+                    pair.into_inner().map(parse_import_statement_ids).collect();
+                let alias = ids.pop().unwrap();
                 Import::Library {
-                    name: sapl_ids.join("."),
+                    name: ids.join("."),
                     alias,
                 }
             }
-            Rule::wildcard_import => {
-                let sapl_ids: Vec<String> = pair
-                    .into_inner()
-                    .map(parse_import_statement_sapl_ids)
-                    .collect();
-                let mut import = sapl_ids.join(".").to_string();
-                import.push_str(".*");
-                Import::Wildcard(import)
-            }
+            Rule::wildcard_import => Wildcard(pair.as_str().to_string()),
             rule => unreachable!(
             "Sapl::parse expected function_import, library_import or wildcard_import, found {:?}",
             rule

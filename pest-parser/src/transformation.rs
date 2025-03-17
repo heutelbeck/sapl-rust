@@ -1,12 +1,16 @@
+use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::Rule;
 
 #[derive(Debug)]
 pub enum Transformation {
     SaplPairs(Vec<Transformation>),
     SaplPair(Vec<Transformation>),
+    BasicIdent(Vec<Transformation>),
+    BasicIdentExpr(BasicIdentifierExpression),
     String(String),
-    SaplId(String),
+    KeyStep(String),
     Filter(String),
+    FilterComponent(String),
 }
 
 impl Transformation {
@@ -14,25 +18,16 @@ impl Transformation {
         use Transformation::*;
 
         match pair.as_rule() {
-            Rule::sapl_id => SaplId(pair.as_str().to_string()),
             Rule::string => Self::new_string(pair.as_str()),
+            Rule::key_step => KeyStep(pair.as_str().to_string()),
             Rule::pairs => SaplPairs(pair.into_inner().map(Transformation::parse).collect()),
             Rule::pair => SaplPair(pair.into_inner().map(Transformation::parse).collect()),
+            Rule::basic_identifier => BasicIdent(pair.into_inner().map(Transformation::parse).collect()),
+            Rule::basic_identifier_expression => BasicIdentExpr(BasicIdentifierExpression::new(pair.as_str())),
             Rule::FILTER => Filter(pair.as_str().to_string()),
-            Rule::filter_component => {
-                let sapl_ids: Vec<Transformation> =
-                    pair.into_inner().map(Transformation::parse).collect();
-                let content: Vec<_> = sapl_ids
-                    .iter()
-                    .filter_map(|e| match e {
-                        SaplId(s) => Some(s.to_owned()),
-                        _ => None,
-                    })
-                    .collect();
-                Transformation::SaplId(content.join(".").to_string())
-            }
+            Rule::filter_component => Transformation::FilterComponent(pair.as_str().to_string()),
             rule => unreachable!(
-                "parse_transformation expected pairs, pair, string, sapl_id, FILTER or filter_component, found {:?}",
+                "parse_transformation expected pairs, pair, string, key_step, id, basic_identifier, basic_identifier_expression, FILTER or filter_component, found {:?}",
                 rule
             ),
         }

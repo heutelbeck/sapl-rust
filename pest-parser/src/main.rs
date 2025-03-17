@@ -168,6 +168,17 @@ fn main() {
         };
     }
     {
+        let policy_with_unvalid_target_expr =
+            parse_sapl_file("policy \"policy 3\" permit subject.name == resource.id.<patient.patientRecord>.attendingDoctor");
+        if let Ok(sapl_doc) = policy_with_unvalid_target_expr {
+            match sapl_doc.validate() {
+                Ok(()) => println!("Sapl document {} successfully validated.", sapl_doc.name()),
+                Err(msg) => println!("{}", msg),
+            }
+            println!();
+        };
+    }
+    {
         let schema =
             parse_sapl_file("subject schema aSubjectSchema == false policy \"policy schema\" deny");
         println!("{:#?}", schema);

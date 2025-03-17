@@ -15,10 +15,10 @@
 */
 
 mod advice;
+mod basic_identifier_expression;
 mod decision;
 mod expr;
 mod import;
-mod obligation;
 mod policy;
 mod schema;
 mod transformation;
@@ -28,7 +28,6 @@ pub use crate::advice::Advice;
 pub use crate::decision::Decision;
 pub use crate::expr::{Expr, Op};
 pub use crate::import::Import;
-pub use crate::obligation::Obligation;
 pub use crate::policy::Policy;
 pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
@@ -54,7 +53,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(eager_or, Left))
             .op(Op::infix(exclusive_or, Left))
             .op(Op::infix(eager_and, Left))
-            .op(Op::infix(equal, Left) | Op::infix(not_equal, Left) | Op::infix(unknown, Left))
+            .op(Op::infix(equal, Left) | Op::infix(not_equal, Left) | Op::infix(regex, Left))
             .op(Op::infix(comparison, Left) | Op::infix(less, Left) | Op::infix(greater, Left) | Op::infix(less_equal, Left) | Op::infix(greater_equal, Left))
             .op(Op::infix(addition, Left) | Op::infix(subtract, Left))
             .op(Op::infix(mul, Left) | Op::infix(div, Left) | Op::infix(modulo, Left))

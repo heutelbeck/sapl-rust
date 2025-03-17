@@ -1,4 +1,4 @@
-use crate::{Expr, Rule};
+use crate::{basic_identifier_expression::BasicIdentifierExpression, Expr, Rule};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -10,9 +10,19 @@ pub struct Schema {
 impl Schema {
     pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
         let mut inner_rules = pair.into_inner();
+        let sapl_id = inner_rules.next().unwrap();
 
         Schema {
-            sapl_id: inner_rules.next().unwrap().as_str().to_string(),
+            sapl_id: match sapl_id.as_rule() {
+                Rule::id => sapl_id.as_str().to_string(),
+                Rule::basic_identifier_expression => {
+                    BasicIdentifierExpression::new(sapl_id.as_str()).to_string()
+                }
+                rule => panic!(
+                    "Schema expect id or basic_identifier_expression, found {:?}",
+                    rule
+                ),
+            },
             expr: Rc::new(Expr::parse(inner_rules)),
         }
     }

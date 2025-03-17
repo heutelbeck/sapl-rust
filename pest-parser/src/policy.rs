@@ -1,6 +1,5 @@
 use crate::advice::Advice;
 use crate::expr::Expr;
-use crate::obligation::Obligation;
 use crate::transformation::Transformation;
 use crate::where_statement::WhereStatement;
 use crate::Entitlement;
@@ -12,7 +11,7 @@ pub struct Policy {
     entitlement: Entitlement,
     target_exp: Option<Box<Expr>>,
     where_statements: Option<Vec<WhereStatement>>,
-    obligations: Option<Vec<Obligation>>,
+    obligations: Option<Box<Expr>>,
     advice: Option<Vec<Advice>>,
     transformation: Option<Vec<Transformation>>,
 }
@@ -41,8 +40,7 @@ impl Policy {
                     );
                 }
                 Rule::obligation => {
-                    policy.obligations =
-                        Some(pair.clone().into_inner().map(Obligation::parse).collect());
+                    policy.obligations = Some(Box::new(Expr::parse(pair.clone().into_inner())));
                 }
                 Rule::advice => {
                     policy.advice = Some(pair.clone().into_inner().map(Advice::parse).collect());
@@ -80,5 +78,16 @@ impl Policy {
             },
             None => Ok(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse_sapl_file;
+
+    #[test]
+    fn policy_parse_element_of() {
+        let element_of = parse_sapl_file("policy \"doctor and nurse access to patient data\" permit action.java.name == \"findById\" where \"ROLE_DOCTOR\" in subject..authority || \"ROLE_NURSE\" in subject..authority;");
+        assert!(element_of.is_ok());
     }
 }
