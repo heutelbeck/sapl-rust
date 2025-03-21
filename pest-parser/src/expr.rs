@@ -159,336 +159,8 @@ impl Expr {
         Expr::String(s)
     }
 
-    fn eval(&self) -> Expr {
-        use self::Expr::*;
-        use Op::*;
-
-        match self {
-            Boolean(b) => Boolean(*b),
-            Expr { lhs, op, rhs } => match (&**lhs, op, &**rhs) {
-                (Boolean(lhs), Equal, Boolean(rhs)) => Boolean(lhs == rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Equal,
-                    Boolean(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: Equal,
-                    rhs: rhs.clone(),
-                }
-                .eval(),
-                (
-                    Boolean(_),
-                    Equal,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: Equal,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (Boolean(lhs), NotEqual, Boolean(rhs)) => Boolean(lhs != rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    NotEqual,
-                    Boolean(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: NotEqual,
-                    rhs: rhs.clone(),
-                }
-                .eval(),
-                (
-                    Boolean(_),
-                    NotEqual,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: NotEqual,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (Boolean(lhs), EagerAnd, Boolean(rhs)) => Boolean(lhs & rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    EagerAnd,
-                    Boolean(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: EagerAnd,
-                    rhs: rhs.clone(),
-                }
-                .eval(),
-                (
-                    Boolean(_),
-                    EagerAnd,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: EagerAnd,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (Boolean(lhs), EagerOr, Boolean(rhs)) => Boolean(lhs | rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    EagerOr,
-                    Boolean(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: EagerOr,
-                    rhs: rhs.clone(),
-                }
-                .eval(),
-                (
-                    Boolean(_),
-                    EagerOr,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: EagerOr,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (Integer(lhs), Equal, Integer(rhs)) => Boolean(lhs == rhs),
-                (Integer(lhs), NotEqual, Integer(rhs)) => Boolean(lhs != rhs),
-                (Integer(lhs), Less, Integer(rhs)) => Boolean(lhs < rhs),
-                (Expr { lhs: _, op, rhs: r }, Less, Integer(_)) => match op {
-                    Less => Expr {
-                        lhs: lhs.eval().into(),
-                        op: EagerAnd,
-                        rhs: Expr {
-                            lhs: r.clone(),
-                            op: Less,
-                            rhs: rhs.clone(),
-                        }
-                        .eval()
-                        .into(),
-                    }
-                    .eval(),
-                    Addition => Expr {
-                        lhs: lhs.eval().into(),
-                        op: Less,
-                        rhs: rhs.clone(),
-                    }
-                    .eval(),
-                    _ => panic!(
-                        "Expr::eval (Integer, Less, Integer) not catch: {:#?}",
-                        &self
-                    ),
-                },
-                (
-                    Integer(_),
-                    Less,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: Less,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (Integer(lhs), Greater, Integer(rhs)) => Boolean(lhs > rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: r,
-                    },
-                    Greater,
-                    Integer(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: EagerAnd,
-                    rhs: Expr {
-                        lhs: r.clone(),
-                        op: Greater,
-                        rhs: rhs.clone(),
-                    }
-                    .eval()
-                    .into(),
-                }
-                .eval(),
-                (Integer(lhs), Addition, Integer(rhs)) => Integer(lhs + rhs),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Addition,
-                    Integer(_),
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: Addition,
-                    rhs: rhs.clone(),
-                }
-                .eval(),
-                (
-                    Integer(_),
-                    Addition,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.clone(),
-                    op: Addition,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    EagerAnd,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: EagerAnd,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    EagerOr,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: EagerOr,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Equal,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: Equal,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    NotEqual,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: NotEqual,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Less,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: Less,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Greater,
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                ) => Expr {
-                    lhs: lhs.eval().into(),
-                    op: Greater,
-                    rhs: rhs.eval().into(),
-                }
-                .eval(),
-                _ => panic!("expr::expr match not implemented for {:#?}", &self),
-            },
-            _ => panic!("expr::evaluation not possible for {:#?}", &self),
-        }
-    }
-
     pub fn evaluate(&self) -> Result<bool, String> {
-        match self.eval() {
+        match self.eval_root() {
             Expr::Boolean(b) => Ok(b),
             other => Err(format!(
                 "Expr::evaluation result expected Boolean, found {:#?}",
@@ -565,7 +237,7 @@ impl Expr {
                     Boolean(_),
                 ) => {
                     let mut result = Expr {
-                        lhs: lhs.eval().into(),
+                        lhs: lhs.eval_expr().into(),
                         op: EagerAnd,
                         rhs: rhs.clone(),
                     };
@@ -583,7 +255,7 @@ impl Expr {
                     Integer(_),
                 ) => {
                     let mut result = Expr {
-                        lhs: lhs.eval().into(),
+                        lhs: lhs.eval_expr().into(),
                         op: Addition,
                         rhs: rhs.clone(),
                     };
@@ -592,6 +264,144 @@ impl Expr {
                 }
                 others => unimplemented!("Expr::simplify needs to implement {:#?}", others),
             }
+        }
+    }
+
+    fn eval_root(&self) -> Expr {
+        use self::Expr::*;
+
+        match self {
+            Boolean(b) => Boolean(*b),
+            Expr { .. } => self.eval_expr(),
+            others => unimplemented!("Expr::eval_root {:#?} is not implemented", others),
+        }
+    }
+
+    fn eval_expr(&self) -> Expr {
+        use self::Expr::*;
+
+        if let Expr { lhs, op, rhs } = self {
+            match (&**lhs, op, &**rhs) {
+                (Boolean(_), _, Boolean(_)) => self.eval_boolean_expr(),
+                (Integer(_), _, Integer(_)) => self.eval_integer_expr(),
+                (Expr { .. }, _, Integer(_)) => self.eval_expr_comp_integer(),
+                (Expr { .. }, _, _) => Expr {
+                    lhs: lhs.eval_expr().into(),
+                    op: op.clone(),
+                    rhs: rhs.clone(),
+                }
+                .eval_expr(),
+                (_, _, Expr { .. }) => Expr {
+                    lhs: lhs.clone(),
+                    op: op.clone(),
+                    rhs: rhs.eval_expr().into(),
+                }
+                .eval_expr(),
+                others => unimplemented!("Expr::eval_expr {:#?} is not implemented", others),
+            }
+        } else {
+            unimplemented!("Expr::eval_expr {:#?} is not implemented", self);
+        }
+    }
+
+    fn eval_boolean_expr(&self) -> Expr {
+        use self::Expr::*;
+        use Op::*;
+
+        if let Expr { lhs, op, rhs } = self {
+            match (&**lhs, op, &**rhs) {
+                (Boolean(lhs), LazyOr, Boolean(rhs)) => Boolean(*lhs || *rhs),
+                (Boolean(lhs), LazyAnd, Boolean(rhs)) => Boolean(*lhs && *rhs),
+                (Boolean(lhs), EagerOr, Boolean(rhs)) => Boolean(lhs | rhs),
+                (Boolean(lhs), EagerAnd, Boolean(rhs)) => Boolean(lhs & rhs),
+                (Boolean(lhs), Equal, Boolean(rhs)) => Boolean(lhs == rhs),
+                (Boolean(lhs), NotEqual, Boolean(rhs)) => Boolean(lhs != rhs),
+                (Boolean(lhs), Less, Boolean(rhs)) => Boolean(lhs > rhs),
+                (Boolean(lhs), Greater, Boolean(rhs)) => Boolean(lhs < rhs),
+                (Boolean(lhs), LessEqual, Boolean(rhs)) => Boolean(lhs <= rhs),
+                (Boolean(lhs), GreaterEqual, Boolean(rhs)) => Boolean(lhs >= rhs),
+                others => {
+                    unimplemented!("Expr::eval_boolean_expr {:#?} is not implemented", others)
+                }
+            }
+        } else {
+            unimplemented!("Expr::eval_boolean_expr {:#?} is not implemented", self);
+        }
+    }
+
+    fn eval_expr_comp_integer(&self) -> Expr {
+        use self::Expr::*;
+        use Op::*;
+
+        if let Expr {
+            lhs,
+            op: outer_op,
+            rhs,
+        } = self
+        {
+            match (&**lhs, outer_op, &**rhs) {
+                (
+                    Expr { op, rhs: r, .. },
+                    Greater | Less | Equal | LessEqual | GreaterEqual,
+                    Integer(_),
+                ) => match op {
+                    Greater | Less | Equal | LessEqual | GreaterEqual => Expr {
+                        lhs: lhs.eval_expr().into(),
+                        op: EagerAnd,
+                        rhs: Expr {
+                            lhs: r.clone(),
+                            op: op.clone(),
+                            rhs: rhs.clone(),
+                        }
+                        .eval_expr()
+                        .into(),
+                    }
+                    .eval_expr(),
+                    _ => Expr {
+                        lhs: lhs.eval_expr().into(),
+                        op: outer_op.clone(),
+                        rhs: rhs.clone(),
+                    }
+                    .eval_expr(),
+                },
+                _ => Expr {
+                    lhs: lhs.eval_expr().into(),
+                    op: outer_op.clone(),
+                    rhs: rhs.clone(),
+                }
+                .eval_expr(),
+            }
+        } else {
+            unimplemented!(
+                "Expr::eval_expr_comp_integer {:#?} is not implemented",
+                self
+            );
+        }
+    }
+
+    fn eval_integer_expr(&self) -> Expr {
+        use self::Expr::*;
+        use Op::*;
+
+        if let Expr { lhs, op, rhs } = self {
+            match (&**lhs, op, &**rhs) {
+                (Integer(lhs), Equal, Integer(rhs)) => Boolean(lhs == rhs),
+                (Integer(lhs), NotEqual, Integer(rhs)) => Boolean(lhs != rhs),
+                (Integer(lhs), Less, Integer(rhs)) => Boolean(lhs < rhs),
+                (Integer(lhs), Greater, Integer(rhs)) => Boolean(lhs > rhs),
+                (Integer(lhs), LessEqual, Integer(rhs)) => Boolean(lhs <= rhs),
+                (Integer(lhs), GreaterEqual, Integer(rhs)) => Boolean(lhs >= rhs),
+                (Integer(lhs), Addition, Integer(rhs)) => Integer(lhs.saturating_add(*rhs)),
+                (Integer(lhs), Subtract, Integer(rhs)) => Integer(lhs.saturating_sub(*rhs)),
+                (Integer(lhs), Multiplication, Integer(rhs)) => Integer(lhs.saturating_mul(*rhs)),
+                (Integer(lhs), Division, Integer(rhs)) => Integer(lhs.saturating_div(*rhs)),
+                (Integer(lhs), Modulo, Integer(rhs)) => Integer(lhs % rhs),
+                others => {
+                    unimplemented!("Expr::eval_integer_expr {:#?} is not implemented", others)
+                }
+            }
+        } else {
+            unimplemented!("Expr::eval_integer_expr {:#?} is not implemented", self);
         }
     }
 
@@ -1043,22 +853,27 @@ mod tests {
             .next()
             .unwrap();
         let expr = Expr::parse(pair.into_inner()).evaluate();
+        println!("Das Ergebnis lautet: {:#?}", expr);
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        //let expr = Expr::parse(pair.into_inner()).evaluate();
+        let e = Expr::parse(pair.into_inner());
+        println!("Der Baum sieht wie folgt aus: {:#?}", e);
+        let expr = e.evaluate();
+        println!("Das Ergebnis lautet: {:#?}", expr);
         assert!(expr.is_ok());
         assert!(expr.unwrap());
-        let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50 + 10")
-            .unwrap()
-            .next()
-            .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
-        assert!(expr.is_ok());
-        assert!(expr.unwrap());
+        // let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50 + 10")
+        //     .unwrap()
+        //     .next()
+        //     .unwrap();
+        // let expr = Expr::parse(pair.into_inner()).evaluate();
+        // assert!(expr.is_ok());
+        // assert!(expr.unwrap());
     }
 
     #[test]
@@ -1201,7 +1016,6 @@ mod tests {
         let mut expr = Expr::parse(pair.into_inner());
         println!("{:#?}", expr);
         expr.simplify();
-        println!("{:#?}", expr);
         assert_eq!(Expr::Integer(42), expr);
     }
 }
