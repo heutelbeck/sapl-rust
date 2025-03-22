@@ -1,3 +1,19 @@
+/*
+    Copyright 2025 Stefan Weng
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License. You may obtain a copy
+    of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+    License for the specific language governing permissions and limitations
+    under the License.
+*/
+
 use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::Rule;
 use crate::PRATT_PARSER;
@@ -561,7 +577,8 @@ mod tests {
         let mut pair = SaplParser::parse(Rule::expression, "a || b");
         assert_eq!(
             pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
+            Rule::basic_identifier,
+            "wrong grammer rule"
         );
         assert_eq!(
             pair.as_mut().unwrap().next().unwrap().as_rule(),
