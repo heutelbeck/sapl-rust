@@ -15,6 +15,7 @@
 */
 
 mod advice;
+mod authorization_subscription;
 mod basic_identifier_expression;
 mod decision;
 mod expr;
@@ -33,6 +34,7 @@ pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
 pub use crate::where_statement::WhereStatement;
 
+use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;
 use pest::{pratt_parser::PrattParser, Parser};
 use pest_derive::Parser;
@@ -139,6 +141,10 @@ impl PolicySet {
     pub fn validate(&self) -> Result<(), String> {
         Ok(())
     }
+
+    pub fn evaluate(&self, _auth_subscription: &AuthorizationSubscription) -> Decision {
+        Decision::NotApplicable
+    }
 }
 
 #[derive(Debug)]
@@ -149,6 +155,13 @@ pub struct SaplDocument {
 }
 
 impl SaplDocument {
+    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
+        match &self.body {
+            DocumentBody::Policy(p) => p.evaluate(auth_subscription),
+            DocumentBody::PolicySet(ps) => ps.evaluate(auth_subscription),
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         let mut result_schema_validation: Result<(), String> = Ok(());
         if let Some(schemas) = &self.schemas {

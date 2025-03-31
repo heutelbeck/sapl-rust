@@ -14,7 +14,11 @@
     under the License.
 */
 
+use serde_json::Value;
+use std::collections::VecDeque;
 use std::fmt::Display;
+
+use crate::authorization_subscription::AuthorizationSubscription;
 
 #[derive(PartialEq, Debug)]
 pub enum BasicIdentifierExpression {
@@ -40,6 +44,14 @@ impl BasicIdentifierExpression {
                 s
             )
         }
+    }
+
+    pub fn evaluate(
+        &self,
+        keys: &mut VecDeque<String>,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Value {
+        auth_subscription.get_value(self, keys)
     }
 }
 

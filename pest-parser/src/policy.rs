@@ -14,10 +14,14 @@
     under the License.
 */
 
+use std::rc::Rc;
+
 use crate::advice::Advice;
+use crate::authorization_subscription::AuthorizationSubscription;
 use crate::expr::Expr;
 use crate::transformation::Transformation;
 use crate::where_statement::WhereStatement;
+use crate::Decision;
 use crate::Entitlement;
 use crate::Rule;
 
@@ -25,7 +29,7 @@ use crate::Rule;
 pub struct Policy {
     pub name: String,
     entitlement: Entitlement,
-    target_exp: Option<Box<Expr>>,
+    target_exp: Option<Rc<Expr>>,
     where_statements: Option<Vec<WhereStatement>>,
     obligations: Option<Box<Expr>>,
     advice: Option<Vec<Advice>>,
@@ -45,7 +49,7 @@ impl Policy {
                 }
                 Rule::entitlement => policy.entitlement = Entitlement::new(pair.as_str()),
                 Rule::target_expression => {
-                    policy.target_exp = Some(Box::new(Expr::parse(pair.clone().into_inner())))
+                    policy.target_exp = Some(Rc::new(Expr::parse(pair.clone().into_inner())))
                 }
                 Rule::where_statement => {
                     policy.where_statements = Some(
@@ -94,6 +98,52 @@ impl Policy {
             },
             None => Ok(()),
         }
+    }
+
+    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
+        // Target Expression    |   Condition   |   Decision
+        //---------------------------------------------------------
+        // false (not matching) |   don’t care  |   NOT_APPLICABLE
+        // true (matching)      |   false       |   NOT_APPLICABLE
+        // Error                |   don’t care  |   INDETERMINATE
+        // true (matching)      |   Error       |   INDETERMINATE
+        // true (matching)      |   true        |   (PERMIT or DENY)
+        //
+        // https://sapl.io/docs/3.0.0-SNAPSHOT/6_2_Policy/
+
+        // TODO umbau mit einem stream aus target und where_statement?
+
+        let target = self
+            .target_exp
+            .as_ref()
+            .unwrap_or(&Rc::new(Expr::Boolean(true)))
+            .evaluate(auth_subscription);
+
+        match target {
+            Err(_) => Decision::Indeterminate,
+            Ok(t) => match t {
+                false => Decision::NotApplicable,
+                true => match self.evaluate_where_statement(auth_subscription) {
+                    Err(_) => Decision::Indeterminate,
+                    Ok(c) => match c {
+                        false => Decision::NotApplicable,
+                        true => Decision::entitlement(&self.entitlement),
+                    },
+                },
+            },
+        }
+    }
+
+    pub fn evaluate_where_statement(
+        &self,
+        _auth_subscription: &AuthorizationSubscription,
+    ) -> Result<bool, String> {
+        if let None = self.where_statements {
+            return Ok(true);
+        }
+
+        //TODO evaluate every statement and combine the result
+        Ok(true)
     }
 }
 

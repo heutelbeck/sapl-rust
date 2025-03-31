@@ -14,10 +14,21 @@
     under the License.
 */
 
+use crate::Entitlement;
+
 #[derive(Debug, PartialEq)]
 pub enum Decision {
     Permit,
     Deny,
     Indeterminate,
     NotApplicable,
+}
+
+impl Decision {
+    pub fn entitlement(e: &Entitlement) -> Self {
+        match e {
+            Entitlement::Deny => Decision::Deny,
+            Entitlement::Permit => Decision::Permit,
+        }
+    }
 }

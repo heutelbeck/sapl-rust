@@ -14,9 +14,11 @@
     under the License.
 */
 
+use crate::authorization_subscription::AuthorizationSubscription;
 use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::Rule;
 use crate::PRATT_PARSER;
+use serde_json::Value;
 use std::collections::VecDeque;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -175,8 +177,8 @@ impl Expr {
         Expr::String(s)
     }
 
-    pub fn evaluate(&self) -> Result<bool, String> {
-        match self.eval_root() {
+    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Result<bool, String> {
+        match self.eval_root(auth_subscription) {
             Expr::Boolean(b) => Ok(b),
             other => Err(format!(
                 "Expr::evaluation result expected Boolean, found {:#?}",
@@ -253,7 +255,9 @@ impl Expr {
                     Boolean(_),
                 ) => {
                     let mut result = Expr {
-                        lhs: lhs.eval_expr().into(),
+                        lhs: lhs
+                            .eval_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .into(),
                         op: EagerAnd,
                         rhs: rhs.clone(),
                     };
@@ -271,7 +275,9 @@ impl Expr {
                     Integer(_),
                 ) => {
                     let mut result = Expr {
-                        lhs: lhs.eval_expr().into(),
+                        lhs: lhs
+                            .eval_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .into(),
                         op: Addition,
                         rhs: rhs.clone(),
                     };
@@ -283,36 +289,37 @@ impl Expr {
         }
     }
 
-    fn eval_root(&self) -> Expr {
+    fn eval_root(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
         use self::Expr::*;
 
         match self {
             Boolean(b) => Boolean(*b),
-            Expr { .. } => self.eval_expr(),
+            Expr { .. } => self.eval_expr(auth_subscription),
             others => unimplemented!("Expr::eval_root {:#?} is not implemented", others),
         }
     }
 
-    fn eval_expr(&self) -> Expr {
+    fn eval_expr(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
         use self::Expr::*;
 
         if let Expr { lhs, op, rhs } = self {
             match (&**lhs, op, &**rhs) {
                 (Boolean(_), _, Boolean(_)) => self.eval_boolean_expr(),
                 (Integer(_), _, Integer(_)) => self.eval_integer_expr(),
-                (Expr { .. }, _, Integer(_)) => self.eval_expr_comp_integer(),
+                (BasicIdentifier(_), _, _) => self.eval_basic_identifier(auth_subscription),
+                (Expr { .. }, _, Integer(_)) => self.eval_expr_comp_integer(auth_subscription),
                 (Expr { .. }, _, _) => Expr {
-                    lhs: lhs.eval_expr().into(),
+                    lhs: lhs.eval_expr(auth_subscription).into(),
                     op: op.clone(),
                     rhs: rhs.clone(),
                 }
-                .eval_expr(),
+                .eval_expr(auth_subscription),
                 (_, _, Expr { .. }) => Expr {
                     lhs: lhs.clone(),
                     op: op.clone(),
-                    rhs: rhs.eval_expr().into(),
+                    rhs: rhs.eval_expr(auth_subscription).into(),
                 }
-                .eval_expr(),
+                .eval_expr(auth_subscription),
                 others => unimplemented!("Expr::eval_expr {:#?} is not implemented", others),
             }
         } else {
@@ -345,7 +352,7 @@ impl Expr {
         }
     }
 
-    fn eval_expr_comp_integer(&self) -> Expr {
+    fn eval_expr_comp_integer(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
         use self::Expr::*;
         use Op::*;
 
@@ -362,30 +369,30 @@ impl Expr {
                     Integer(_),
                 ) => match op {
                     Greater | Less | Equal | LessEqual | GreaterEqual => Expr {
-                        lhs: lhs.eval_expr().into(),
+                        lhs: lhs.eval_expr(auth_subscription).into(),
                         op: EagerAnd,
                         rhs: Expr {
                             lhs: r.clone(),
                             op: op.clone(),
                             rhs: rhs.clone(),
                         }
-                        .eval_expr()
+                        .eval_expr(auth_subscription)
                         .into(),
                     }
-                    .eval_expr(),
+                    .eval_expr(auth_subscription),
                     _ => Expr {
-                        lhs: lhs.eval_expr().into(),
+                        lhs: lhs.eval_expr(auth_subscription).into(),
                         op: outer_op.clone(),
                         rhs: rhs.clone(),
                     }
-                    .eval_expr(),
+                    .eval_expr(auth_subscription),
                 },
                 _ => Expr {
-                    lhs: lhs.eval_expr().into(),
+                    lhs: lhs.eval_expr(auth_subscription).into(),
                     op: outer_op.clone(),
                     rhs: rhs.clone(),
                 }
-                .eval_expr(),
+                .eval_expr(auth_subscription),
             }
         } else {
             unimplemented!(
@@ -419,6 +426,62 @@ impl Expr {
         } else {
             unimplemented!("Expr::eval_integer_expr {:#?} is not implemented", self);
         }
+    }
+
+    fn eval_basic_identifier(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
+        use self::Expr::*;
+        use Op::*;
+
+        if let Expr { lhs, op, rhs } = self {
+            if let BasicIdentifier(bi) = &**lhs {
+                let sapl_id = bi.first();
+
+                let mut keys: VecDeque<_> = bi
+                    .iter()
+                    .skip(1)
+                    .filter_map(|e| match e {
+                        KeyStep(s) => Some(s.to_owned()),
+                        _ => None,
+                    })
+                    .collect();
+
+                let lhs_result: Value = match sapl_id {
+                    Some(BasicIdentifierExpression(bie)) => {
+                        keys.push_front(bie.to_string());
+                        bie.evaluate(&mut keys, auth_subscription)
+                    }
+                    _ => Value::Null,
+                };
+
+                return match (lhs_result, op, &**rhs) {
+                    (Value::String(l), Equal, String(s)) => Boolean(l.eq(s)),
+                    (Value::Number(l), _, Integer(r)) => {
+                        let num = l.as_i64();
+                        match num {
+                            Some(n) => match op {
+                                Equal => Boolean(n == *r as i64),
+                                NotEqual => Boolean(n != *r as i64),
+                                Less => Boolean(n < *r as i64),
+                                Greater => Boolean(n > *r as i64),
+                                LessEqual => Boolean(n <= *r as i64),
+                                GreaterEqual => Boolean(n >= *r as i64),
+                                _ => Boolean(false),
+                            },
+                            None => Boolean(false),
+                        }
+                    }
+                    (Value::Bool(l), Equal, Boolean(r)) => Boolean(l == *r),
+                    (Value::Bool(l), NotEqual, Boolean(r)) => Boolean(l != *r),
+                    (Value::Null, _, _) => Boolean(false),
+                    (Value::Object(_), _, _) => Boolean(false),
+                    others => panic!(
+                        "Expr::eval_basic_identifier {:#?} is not implemented",
+                        others
+                    ),
+                };
+            }
+        }
+        panic!("Expr::eval_basic_identifier expected, found {:#?}", self);
     }
 
     pub fn iter(&self) -> ExprIter {
@@ -728,7 +791,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
     }
@@ -739,7 +803,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -750,21 +815,24 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "true & false")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "true & true & true")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -775,21 +843,24 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "false | false")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "false | false | true")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -800,7 +871,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -811,7 +883,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -822,21 +895,24 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15 < 20")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -847,7 +923,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -858,7 +935,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -869,7 +947,8 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Expr::parse(pair.into_inner()).evaluate();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         println!("Das Ergebnis lautet: {:#?}", expr);
         assert!(expr.is_ok());
         assert!(expr.unwrap());
@@ -877,20 +956,47 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        //let expr = Expr::parse(pair.into_inner()).evaluate();
-        let e = Expr::parse(pair.into_inner());
-        println!("Der Baum sieht wie folgt aus: {:#?}", e);
-        let expr = e.evaluate();
-        println!("Das Ergebnis lautet: {:#?}", expr);
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
         assert!(expr.unwrap());
-        // let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50 + 10")
-        //     .unwrap()
-        //     .next()
-        //     .unwrap();
-        // let expr = Expr::parse(pair.into_inner()).evaluate();
-        // assert!(expr.is_ok());
-        // assert!(expr.unwrap());
+        let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50 + 10")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action() {
+        let pair = SaplParser::parse(Rule::target_expression, "action == \"read\"")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        assert!(expr.is_ok());
+        println!("{:#?}", expr);
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action2() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action.nutrients.calories == \"low\"",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Expr::parse(pair.into_inner())
+            .evaluate(&AuthorizationSubscription::new_example_subscription2());
+        assert!(expr.is_ok());
+        println!("action2 {:#?}", expr);
+        assert!(expr.unwrap());
     }
 
     #[test]
