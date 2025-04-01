@@ -18,7 +18,7 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 COMMENT = _{ line_comment | block_comment }
 
-line_comment = _{ " //" ~ (!"\n" ~ ANY)* }
+line_comment = _{ "//" ~ (!"\n" ~ ANY)* }
 
 block_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
@@ -215,7 +215,7 @@ basic_identifier_expression = { "subject" | "action" | "resource" | "environment
 
 id = @{ "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
 
-string = { "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+string = @{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
 
 FILTER = { "|-" }
 
