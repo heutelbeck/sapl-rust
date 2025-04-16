@@ -55,9 +55,9 @@ policy_set_name = @{ string }
 
 statement = _{ !("where" | "transform" | "advice" | "obligation") ~ (variable_assignment | condition) ~ ";"* }
 
-variable_assignment = { "var" ~ id ~ "=" ~ expression ~ ("schema" ~ expression ~ ("," ~ expression)*)? }
+variable_assignment = { "var" ~ id ~ "=" ~ condition ~ ("schema" ~ condition ~ ("," ~ condition)*)? }
 
-condition = { expression }
+condition = { !"policy" ~ expression }
 
 entitlement = { "permit" | "deny" }
 
@@ -127,9 +127,9 @@ unary_expression = { ("!" | "-" | "+") }
 
 basic_expression = _{ basic ~ (FILTER ~ filter_component | SUBTEMPLATE ~ basic_expression)? }
 
-filter_component = @{ "each"? ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
+filter_component = { "each"? ~ function_identifier ~ arguments? | "{" ~ filter_statement ~ ("," ~ filter_statement)* ~ "}" }
 
-filter_statement = { "each"? ~ "@"? ~ ":" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? }
+filter_statement = { "each"? ~ basic_relative? ~ ":" ~ function_identifier ~ arguments? }
 
 arguments = { "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 
@@ -207,7 +207,7 @@ recursive_index_step = @{ "[" ~ signed_number ~ "]" }
 
 subscript = { string | "*" | signed_number | signed_number? ~ ":" ~ signed_number? ~ (":" ~ signed_number)? | "(" ~ expression ~ ")" | "?" ~ "(" ~ expression ~ ")" | signed_number ~ ("," ~ signed_number)* | string ~ ("," ~ string)* }
 
-signed_number = { "-"? ~ JSONNUMBER }
+signed_number = @{ subtract? ~ JSONNUMBER }
 
 sapl_id = _{ basic_identifier_expression | id }
 
