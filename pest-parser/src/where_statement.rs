@@ -14,7 +14,9 @@
     under the License.
 */
 
+use crate::authorization_subscription::AuthorizationSubscription;
 use crate::{Expr, Rule};
+
 #[derive(Debug)]
 pub enum WhereStatement {
     Expression(Expr),
@@ -38,21 +40,47 @@ impl WhereStatement {
         use WhereStatement::*;
 
         match pair.as_rule() {
-        Rule::condition => Expression(Expr::parse(pair.into_inner())),
-        Rule::variable_assignment => VariableAssignment(pair.into_inner().map(WhereStatement::parse).collect()),
-        Rule::string => WhereStatement::new_string(pair.as_str()),
-        Rule::boolean_literal => WhereStatement::Boolean(pair.as_str().parse().unwrap()),
-        Rule::integer => WhereStatement::Integer(pair.as_str().trim().parse().unwrap()),
-        Rule::float => WhereStatement::Float(pair.as_str().trim().parse().unwrap()),
-        Rule::id => Id(pair.as_str().to_string()),
-        Rule::pairs => SaplPairs(pair.into_inner().map(WhereStatement::parse).collect()),
-        Rule::pair => SaplPair(pair.into_inner().map(WhereStatement::parse).collect()),
-        rule => unreachable!(
-            "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal, pairs or pair, found {:?}",
-            rule
-        ),
+            Rule::condition => Expression(Expr::parse(pair.into_inner())),
+            Rule::variable_assignment => VariableAssignment(pair.into_inner().map(WhereStatement::parse).collect()),
+            Rule::string => WhereStatement::new_string(pair.as_str()),
+            Rule::boolean_literal => WhereStatement::Boolean(pair.as_str().parse().unwrap()),
+            Rule::integer => WhereStatement::Integer(pair.as_str().trim().parse().unwrap()),
+            Rule::float => WhereStatement::Float(pair.as_str().trim().parse().unwrap()),
+            Rule::id => Id(pair.as_str().to_string()),
+            Rule::pairs => SaplPairs(pair.into_inner().map(WhereStatement::parse).collect()),
+            Rule::pair => SaplPair(pair.into_inner().map(WhereStatement::parse).collect()),
+            rule => unreachable!(
+                "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal, pairs or pair, found {:?}",
+                rule
+            ),
+        }
     }
+
+    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Result<bool, String> {
+        use self::WhereStatement::*;
+
+        if let Expression(e) = self {
+            return e.evaluate(auth_subscription);
+        }
+
+        match self.eval_root(auth_subscription) {
+            WhereStatement::Boolean(b) => Ok(b),
+            other => Err(format!(
+                "Expr::evaluation result expected Boolean, found {:#?}",
+                other
+            )),
+        }
     }
+
+    fn eval_root(&self, _auth_subscription: &AuthorizationSubscription) -> WhereStatement {
+        use self::WhereStatement::*;
+
+        match self {
+            Boolean(b) => Boolean(*b),
+            others => unimplemented!("Expr::eval_root {:#?} is not implemented", others),
+        }
+    }
+
     fn new_string(src: &str) -> Self {
         let mut s = src.to_string();
         s.retain(|c| c != '\"');

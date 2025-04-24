@@ -15,12 +15,15 @@
 */
 
 mod advice;
-mod authorization_subscription;
+pub mod authorization_subscription;
 mod basic_identifier_expression;
+pub mod boolean_stream;
+mod combine_expr;
 mod decision;
+mod delay;
 mod expr;
 mod import;
-mod policy;
+pub mod policy;
 mod schema;
 mod transformation;
 mod where_statement;
@@ -34,10 +37,15 @@ pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
 pub use crate::where_statement::WhereStatement;
 
+use async_stream::stream;
 use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;
 use pest::{pratt_parser::PrattParser, Parser};
 use pest_derive::Parser;
+use std::future;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio_stream::Stream;
 
 #[derive(Parser)]
 #[grammar = "grammar/sapl.pest"]
@@ -58,12 +66,12 @@ lazy_static::lazy_static! {
             .op(Op::infix(equal, Left) | Op::infix(not_equal, Left) | Op::infix(regex, Left))
             .op(Op::infix(comparison, Left) | Op::infix(less, Left) | Op::infix(greater, Left) | Op::infix(less_equal, Left) | Op::infix(greater_equal, Left))
             .op(Op::infix(addition, Left) | Op::infix(subtract, Left))
-            .op(Op::infix(mul, Left) | Op::infix(div, Left) | Op::infix(modulo, Left))
+            .op(Op::infix(mul, Left) | Op::infix(div, Left) | Op::infix(modulo, Left) | Op::infix(FILTER, Left))
             .op(Op::prefix(unary_expression))
     };
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Entitlement {
     Permit,
     #[default]
@@ -127,6 +135,9 @@ impl PolicySet {
                 Rule::combining_algorithm => {
                     policy_set.combining_algorithm = CombiningAlgorithm::new(pair.as_str())
                 }
+                Rule::target_expression => {
+                    policy_set.target_exp = Some(Arc::new(Expr::parse(pair.clone().into_inner())))
+                }
                 Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner())),
                 rule => unreachable!(
                     "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {:?}",
@@ -145,20 +156,43 @@ impl PolicySet {
     pub fn evaluate(&self, _auth_subscription: &AuthorizationSubscription) -> Decision {
         Decision::NotApplicable
     }
+
+    pub async fn evaluate_as_stream(
+        &self,
+        _auth_subscription: &AuthorizationSubscription,
+        //) -> Box<dyn Stream<Item = Decision> + '_> {
+    ) -> impl Stream<Item = Decision> + '_ {
+        stream! {
+            yield Decision::NotApplicable;
+            future::pending::<()>().await;
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct SaplDocument {
     imports: Option<Vec<Import>>,
     schemas: Option<Vec<Schema>>,
-    body: DocumentBody,
+    pub body: DocumentBody,
 }
 
 impl SaplDocument {
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
+        use DocumentBody::*;
         match &self.body {
-            DocumentBody::Policy(p) => p.evaluate(auth_subscription),
-            DocumentBody::PolicySet(ps) => ps.evaluate(auth_subscription),
+            Policy(p) => p.evaluate(auth_subscription),
+            PolicySet(ps) => ps.evaluate(auth_subscription),
+        }
+    }
+
+    fn evaluate_as_stream(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Pin<Box<dyn Stream<Item = Decision> + '_>> {
+        use DocumentBody::*;
+        match &self.body {
+            Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
+            PolicySet(ps) => panic!("not implemented"), //Box::pin(ps.evaluate_as_stream(auth_subscription)),
         }
     }
 
@@ -216,6 +250,7 @@ impl DocumentBody {
 pub struct PolicySet {
     pub name: String,
     combining_algorithm: CombiningAlgorithm,
+    target_exp: Option<Arc<Expr>>,
     policies: Vec<Policy>,
 }
 

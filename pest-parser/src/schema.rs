@@ -15,12 +15,12 @@
 */
 
 use crate::{basic_identifier_expression::BasicIdentifierExpression, Expr, Rule};
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Schema {
     sapl_id: String,
-    expr: Rc<Expr>,
+    expr: Arc<Expr>,
 }
 
 impl Schema {
@@ -39,7 +39,7 @@ impl Schema {
                     rule
                 ),
             },
-            expr: Rc::new(Expr::parse(inner_rules)),
+            expr: Arc::new(Expr::parse(inner_rules)),
         }
     }
 

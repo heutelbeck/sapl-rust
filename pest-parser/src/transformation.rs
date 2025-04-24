@@ -27,6 +27,7 @@ pub enum Transformation {
     KeyStep(String),
     Filter(String),
     FilterComponent(String),
+    Concat,
 }
 
 impl Transformation {
@@ -42,6 +43,7 @@ impl Transformation {
             Rule::basic_identifier_expression => BasicIdentExpr(BasicIdentifierExpression::new(pair.as_str())),
             Rule::FILTER => Filter(pair.as_str().to_string()),
             Rule::filter_component => Transformation::FilterComponent(pair.as_str().to_string()),
+            Rule::addition => Transformation::Concat,
             rule => unreachable!(
                 "parse_transformation expected pairs, pair, string, key_step, id, basic_identifier, basic_identifier_expression, FILTER or filter_component, found {:?}",
                 rule

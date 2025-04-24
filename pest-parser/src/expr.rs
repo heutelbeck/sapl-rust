@@ -21,69 +21,101 @@ use crate::PRATT_PARSER;
 use serde_json::Value;
 use std::collections::VecDeque;
 use std::fmt::Display;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(PartialEq, Debug)]
 pub enum Expr {
     Expr {
-        lhs: Rc<Expr>,
+        lhs: Arc<Expr>,
         op: Op,
-        rhs: Rc<Expr>,
+        rhs: Arc<Expr>,
     },
-    SaplPairs(Rc<Vec<Expr>>),
+    SaplPairs(Arc<Vec<Expr>>),
     SaplPair {
-        lhs: Rc<Expr>,
-        rhs: Rc<Vec<Expr>>,
+        lhs: Arc<Expr>,
+        rhs: Arc<Vec<Expr>>,
     },
-    BasicIdentifier(Rc<Vec<Expr>>),
-    BasicGroup(Rc<Vec<Expr>>),
-    BasicIdentifierExpression(Rc<BasicIdentifierExpression>),
-    UnaryPlus(Rc<Expr>),
-    UnaryMinus(Rc<Expr>),
-    LogicalNot(Rc<Expr>),
+    BasicEnvironmentAttribute(Arc<Expr>),
+    BasicIdentifier(Arc<Vec<Expr>>),
+    BasicFunction(Arc<Vec<Expr>>),
+    BasicValue(Arc<Vec<Expr>>),
+    BasicGroup(Arc<Expr>),
+    FilterComponent(Arc<Vec<Expr>>),
+    FilterStatement(Arc<Vec<Expr>>),
+    BasicIdentifierExpression(Arc<BasicIdentifierExpression>),
+    FunctionIdentifier(Arc<Vec<Expr>>),
+    Array(Arc<Vec<Expr>>),
+    UnaryPlus(Arc<Expr>),
+    UnaryMinus(Arc<Expr>),
+    LogicalNot(Arc<Expr>),
+    Arguments(Arc<Expr>),
+    Subscript(Arc<Expr>),
     Boolean(bool),
     Integer(i32),
     Float(f32),
+    SignedNumber(String),
     String(String),
     Id(String),
     KeyStep(String),
     RecursiveKeyStep(String),
+    RecursiveIndexStep(String),
+    RecursiveWildcardStep,
     AttributeFinderStep(String),
     HeadAttributeFinderStep(String),
     Concat,
+    Div,
+    Null,
+    Undefined,
 }
 
 impl Clone for Expr {
     fn clone(&self) -> Self {
         match self {
             Expr::Expr { lhs, op, rhs } => Expr::Expr {
-                lhs: Rc::clone(lhs),
+                lhs: Arc::clone(lhs),
                 op: op.clone(),
-                rhs: Rc::clone(rhs),
+                rhs: Arc::clone(rhs),
             },
-            Expr::SaplPairs(expr) => Expr::SaplPairs(Rc::clone(expr)),
+            Expr::SaplPairs(expr) => Expr::SaplPairs(Arc::clone(expr)),
             Expr::SaplPair { lhs, rhs } => Expr::SaplPair {
-                lhs: Rc::clone(lhs),
-                rhs: Rc::clone(rhs),
+                lhs: Arc::clone(lhs),
+                rhs: Arc::clone(rhs),
             },
-            Expr::BasicIdentifier(expr) => Expr::BasicIdentifier(Rc::clone(expr)),
-            Expr::BasicGroup(expr) => Expr::BasicGroup(Rc::clone(expr)),
-            Expr::BasicIdentifierExpression(expr) => {
-                Expr::BasicIdentifierExpression(Rc::clone(expr))
+            Expr::BasicEnvironmentAttribute(expr) => {
+                Expr::BasicEnvironmentAttribute(Arc::clone(expr))
             }
-            Expr::UnaryPlus(expr) => Expr::UnaryPlus(Rc::clone(expr)),
-            Expr::UnaryMinus(expr) => Expr::UnaryMinus(Rc::clone(expr)),
-            Expr::LogicalNot(expr) => Expr::LogicalNot(Rc::clone(expr)),
+            Expr::BasicIdentifier(expr) => Expr::BasicIdentifier(Arc::clone(expr)),
+            Expr::BasicFunction(expr) => Expr::BasicFunction(Arc::clone(expr)),
+            Expr::BasicGroup(expr) => Expr::BasicGroup(Arc::clone(expr)),
+            Expr::BasicValue(expr) => Expr::BasicValue(Arc::clone(expr)),
+            Expr::BasicIdentifierExpression(expr) => {
+                Expr::BasicIdentifierExpression(Arc::clone(expr))
+            }
+            Expr::FunctionIdentifier(expr) => Expr::FunctionIdentifier(Arc::clone(expr)),
+            Expr::FilterComponent(expr) => Expr::FilterComponent(Arc::clone(expr)),
+            Expr::FilterStatement(expr) => Expr::FilterStatement(Arc::clone(expr)),
+            Expr::Array(expr) => Expr::Array(Arc::clone(expr)),
+            Expr::UnaryPlus(expr) => Expr::UnaryPlus(Arc::clone(expr)),
+            Expr::UnaryMinus(expr) => Expr::UnaryMinus(Arc::clone(expr)),
+            Expr::LogicalNot(expr) => Expr::LogicalNot(Arc::clone(expr)),
+            Expr::Arguments(expr) => Expr::Arguments(Arc::clone(expr)),
+            Expr::Subscript(expr) => Expr::Subscript(Arc::clone(expr)),
             Expr::Boolean(val) => Expr::Boolean(*val),
             Expr::Integer(val) => Expr::Integer(*val),
             Expr::Float(val) => Expr::Float(*val),
+            Expr::SignedNumber(val) => Expr::SignedNumber(val.clone()),
             Expr::String(val) => Expr::String(val.clone()),
             Expr::Id(val) => Expr::Id(val.clone()),
             Expr::KeyStep(val) => Expr::KeyStep(val.clone()),
             Expr::RecursiveKeyStep(val) => Expr::RecursiveKeyStep(val.clone()),
+            Expr::RecursiveIndexStep(val) => Expr::RecursiveIndexStep(val.clone()),
+            Expr::RecursiveWildcardStep => Expr::RecursiveWildcardStep,
             Expr::AttributeFinderStep(val) => Expr::AttributeFinderStep(val.clone()),
             Expr::HeadAttributeFinderStep(val) => Expr::HeadAttributeFinderStep(val.clone()),
             Expr::Concat => Expr::Concat,
+            Expr::Div => Expr::Div,
+            Expr::Null => Expr::Null,
+            Expr::Undefined => Expr::Undefined,
         }
     }
 }
@@ -93,41 +125,65 @@ impl Expr {
         fn parse_pair(pair: pest::iterators::Pair<Rule>) -> Expr {
             match pair.as_rule() {
                 Rule::pairs => {
-                    Expr::SaplPairs(Rc::new(pair.into_inner().map(parse_pair).collect()))
+                    Expr::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect()))
                 }
                 Rule::pair => {
                     let mut inner_rules = pair.into_inner();
                     let lhs = inner_rules.next().unwrap();
                     Expr::SaplPair {
-                        lhs: Rc::new(Expr::new_string(lhs.as_str())),
-                        rhs: Rc::new(inner_rules.map(parse_pair).collect()),
+                        lhs: Arc::new(Expr::new_string(lhs.as_str())),
+                        rhs: Arc::new(inner_rules.map(parse_pair).collect()),
                     }
                 }
                 Rule::basic_group => Expr::parse(pair.into_inner()),
-                Rule::basic_identifier => Expr::BasicIdentifier(Rc::new(pair.into_inner().map(parse_basic_identifier).collect())),
+                Rule::basic_value => Expr::BasicValue(Arc::new(pair.into_inner().map(parse_pair).collect())),
+                Rule::basic_identifier => Expr::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::array => Expr::Array(Arc::new(pair.into_inner().map(parse_pair).collect())),
                 Rule::string => Expr::new_string(pair.as_str()),
                 Rule::boolean_literal => Expr::Boolean(pair.as_str().parse().unwrap()),
                 Rule::integer => Expr::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::float => Expr::Float(pair.as_str().trim().parse().unwrap()),
+                Rule::div => Expr::Div,
                 Rule::addition => Expr::Concat,
                 rule => unreachable!("Expr::parse_pair expected pairs, pair, string, boolean_literal, integer or float, found {:?}", rule),
             }
         }
-        fn parse_basic_identifier(pair: pest::iterators::Pair<Rule>) -> Expr {
+        fn parse_basics(pair: pest::iterators::Pair<Rule>) -> Expr {
             match pair.as_rule() {
-                Rule::basic_identifier_expression => Expr::BasicIdentifierExpression(Rc::new(BasicIdentifierExpression::new(pair.as_str()))),
+                Rule::basic_identifier_expression => Expr::BasicIdentifierExpression(Arc::new(BasicIdentifierExpression::new(pair.as_str()))),
+                Rule::function_identifier => Expr::FunctionIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::arguments => Expr::Arguments(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
+                Rule::subscript => Expr::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
+                Rule::basic_environment_attribute => Expr::BasicEnvironmentAttribute(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
+                Rule::basic_identifier => Expr::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::filter_statement => Expr::FilterStatement(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::array => Expr::Array(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::signed_number => Expr::SignedNumber(pair.as_str().to_string()),
                 Rule::key_step => Expr::KeyStep(pair.as_str().to_string()),
                 Rule::recursive_key_step => Expr::RecursiveKeyStep(pair.as_str().to_string()),
+                Rule::recursive_index_step => Expr::RecursiveIndexStep(pair.as_str().to_string()),
+                Rule::recursive_wildcard_step => Expr::RecursiveWildcardStep,
                 Rule::attribute_finder_step => Expr::AttributeFinderStep(pair.as_str().to_string()),
                 Rule::head_attribute_finder_step => Expr::HeadAttributeFinderStep(pair.as_str().to_string()),
+                Rule::pairs => Expr::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect())),
+                Rule::string => Expr::new_string(pair.as_str()),
+                Rule::integer => Expr::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::id => Expr::Id(pair.as_str().to_string()),
+                Rule::div => Expr::Div,
+                Rule::null_literal => Expr::Null,
+                Rule::undefined_literal => Expr::Undefined,
                 rule => unreachable!("Expr::parse_basic_identifier expected basic_identifier_expression, key_step, recursive_key_step, or attribute_finder_step, found {:?}", rule),
             }
         }
         PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
-            Rule::pairs => Expr::SaplPairs(Rc::new(primary.into_inner().map(parse_pair).collect())),
-            Rule::basic_identifier => Expr::BasicIdentifier(Rc::new(primary.into_inner().map(parse_basic_identifier).collect())),
+            Rule::pairs => Expr::SaplPairs(Arc::new(primary.into_inner().map(parse_pair).collect())),
+            Rule::basic_identifier => Expr::BasicIdentifier(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::basic_function => Expr::BasicFunction(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::basic_group => Expr::BasicGroup(Arc::new(Expr::parse(primary.into_inner()))),
+            Rule::basic_value => Expr::BasicValue(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::filter_component => Expr::FilterComponent(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::array => Expr::Array(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::string => Expr::new_string(primary.as_str()),
             Rule::boolean_literal => Expr::Boolean(primary.as_str().parse().unwrap()),
             Rule::integer => Expr::Integer(primary.as_str().parse().unwrap()),
@@ -154,18 +210,19 @@ impl Expr {
                 Rule::mul => Op::Multiplication,
                 Rule::div => Op::Division,
                 Rule::modulo => Op::Modulo,
+                Rule::FILTER => Op::Filter,
                 rule => unreachable!("Expr::parse expected infix operation, found {:?}", rule),
             };
             Expr::Expr {
-                lhs: Rc::new(lhs),
+                lhs: Arc::new(lhs),
                 op,
-                rhs: Rc::new(rhs),
+                rhs: Arc::new(rhs),
             }
         })
         .map_prefix(|op, rhs| match op.as_str() {
-            "!" => Expr::LogicalNot(Rc::new(rhs)),
-            "-" => Expr::UnaryMinus(Rc::new(rhs)),
-            "+" => Expr::UnaryPlus(Rc::new(rhs)),
+            "!" => Expr::LogicalNot(Arc::new(rhs)),
+            "-" => Expr::UnaryMinus(Arc::new(rhs)),
+            "+" => Expr::UnaryPlus(Arc::new(rhs)),
             _ => unreachable!(),
         })
         .parse(pairs)
@@ -191,7 +248,7 @@ impl Expr {
         //TODO needs to be added
         //BASIC_ENVIRONMENT_ATTRIBUTE
         //BASIC_ENVIRONMENT_HEAD_ATTRIBUTE
-        let check = |e: &Rc<Expr>| -> Option<ValidationErr> {
+        let check = |e: &Arc<Expr>| -> Option<ValidationErr> {
             match &**e {
                 Expr::AttributeFinderStep(_) => Some(ValidationErr::AttributeFinderStep),
                 Expr::HeadAttributeFinderStep(_) => Some(ValidationErr::HeadAttributeFinderStep),
@@ -206,7 +263,7 @@ impl Expr {
         //TODO needs to be added
         //BASIC_ENVIRONMENT_ATTRIBUTE
         //BASIC_ENVIRONMENT_HEAD_ATTRIBUTE
-        let check = |e: &Rc<Expr>| -> Option<ValidationErr> {
+        let check = |e: &Arc<Expr>| -> Option<ValidationErr> {
             match &**e {
                 Expr::Expr { op, .. } => match op {
                     Op::LazyAnd => Some(ValidationErr::LazyAnd),
@@ -224,11 +281,11 @@ impl Expr {
 
     fn validate(
         &self,
-        check: fn(&Rc<Expr>) -> Option<ValidationErr>,
+        check: fn(&Arc<Expr>) -> Option<ValidationErr>,
     ) -> Option<Vec<ValidationErr>> {
         let result: Vec<_> = self
             .iter()
-            .filter_map(|expr: Rc<Expr>| check(&expr))
+            .filter_map(|expr: Arc<Expr>| check(&expr))
             .collect();
 
         if result.is_empty() {
@@ -447,7 +504,6 @@ impl Expr {
 
                 let lhs_result: Value = match sapl_id {
                     Some(BasicIdentifierExpression(bie)) => {
-                        keys.push_front(bie.to_string());
                         bie.evaluate(&mut keys, auth_subscription)
                     }
                     _ => Value::Null,
@@ -486,60 +542,69 @@ impl Expr {
 
     pub fn iter(&self) -> ExprIter {
         let mut stack = VecDeque::new();
-        stack.push_back(Rc::new(self.clone()));
+        stack.push_back(Arc::new(self.clone()));
         ExprIter { stack }
     }
 }
 
 pub struct ExprIter {
-    stack: VecDeque<Rc<Expr>>,
+    stack: VecDeque<Arc<Expr>>,
 }
 
 impl Iterator for ExprIter {
-    type Item = Rc<Expr>;
+    type Item = Arc<Expr>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(node) = self.stack.pop_front() {
             match &*node {
                 Expr::Expr { lhs, op: _, rhs } => {
-                    self.stack.push_back(Rc::clone(rhs));
-                    self.stack.push_back(Rc::clone(lhs));
-                }
-                Expr::SaplPairs(expr) => {
-                    for elem in expr.iter() {
-                        self.stack.push_back(Rc::new(elem.clone()));
-                    }
+                    self.stack.push_back(Arc::clone(rhs));
+                    self.stack.push_back(Arc::clone(lhs));
                 }
                 Expr::SaplPair { lhs, rhs } => {
-                    self.stack.push_back(Rc::clone(lhs));
+                    self.stack.push_back(Arc::clone(lhs));
                     for elem in rhs.iter() {
-                        self.stack.push_back(Rc::new(elem.clone()));
+                        self.stack.push_back(Arc::new(elem.clone()));
                     }
                 }
-                Expr::BasicIdentifier(expr) => {
+                Expr::SaplPairs(expr)
+                | Expr::BasicIdentifier(expr)
+                | Expr::BasicFunction(expr)
+                | Expr::BasicValue(expr)
+                | Expr::FunctionIdentifier(expr)
+                | Expr::FilterComponent(expr)
+                | Expr::FilterStatement(expr)
+                | Expr::Array(expr) => {
                     for elem in expr.iter() {
-                        self.stack.push_back(Rc::new(elem.clone()));
+                        self.stack.push_back(Arc::new(elem.clone()));
                     }
                 }
-                Expr::BasicGroup(expr) => {
-                    for elem in expr.iter() {
-                        self.stack.push_back(Rc::new(elem.clone()));
-                    }
-                }
-                Expr::UnaryPlus(expr) | Expr::UnaryMinus(expr) | Expr::LogicalNot(expr) => {
-                    self.stack.push_back(Rc::clone(expr));
+                Expr::UnaryPlus(expr)
+                | Expr::UnaryMinus(expr)
+                | Expr::LogicalNot(expr)
+                | Expr::Arguments(expr)
+                | Expr::Subscript(expr)
+                | Expr::BasicGroup(expr)
+                | Expr::BasicEnvironmentAttribute(expr) => {
+                    self.stack.push_back(Arc::clone(expr));
                 }
                 Expr::KeyStep(_)
                 | Expr::RecursiveKeyStep(_)
+                | Expr::RecursiveIndexStep(_)
+                | Expr::RecursiveWildcardStep
                 | Expr::AttributeFinderStep(_)
                 | Expr::HeadAttributeFinderStep(_)
                 | Expr::BasicIdentifierExpression(_)
                 | Expr::Boolean(_)
                 | Expr::Integer(_)
                 | Expr::Float(_)
+                | Expr::SignedNumber(_)
                 | Expr::String(_)
                 | Expr::Id(_)
-                | Expr::Concat => {}
+                | Expr::Concat
+                | Expr::Div
+                | Expr::Null
+                | Expr::Undefined => {}
             }
 
             Some(node)
@@ -569,6 +634,7 @@ pub enum Op {
     Multiplication,
     Division,
     Modulo,
+    Filter,
 }
 
 impl Clone for Op {
@@ -593,6 +659,7 @@ impl Clone for Op {
             Multiplication => Multiplication,
             Division => Division,
             Modulo => Modulo,
+            Filter => Filter,
         }
     }
 }
@@ -979,7 +1046,6 @@ mod tests {
         let expr = Expr::parse(pair.into_inner())
             .evaluate(&AuthorizationSubscription::new_example_subscription1());
         assert!(expr.is_ok());
-        println!("{:#?}", expr);
         assert!(expr.unwrap());
     }
 

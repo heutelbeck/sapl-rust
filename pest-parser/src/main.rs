@@ -184,4 +184,10 @@ fn main() {
         println!("{:#?}", schema);
         println!();
     }
+    {
+        let basic_group =
+            parse_sapl_file("policy \"all authenticated users may access patient records\" permit action.java.name == \"getPatient\" & resource.http.requestedURI =~ \"^/patients/[0-9]+$\" where !(\"ROLE_ANONYMOUS\" in subject..authority);");
+        println!("{:#?}", basic_group);
+        println!();
+    }
 }
