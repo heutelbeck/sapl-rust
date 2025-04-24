@@ -36,6 +36,7 @@ pub enum Expr {
         rhs: Arc<Vec<Expr>>,
     },
     BasicEnvironmentAttribute(Arc<Expr>),
+    BasicEnvironmentHeadAttribute(Arc<Expr>),
     BasicIdentifier(Arc<Vec<Expr>>),
     BasicFunction(Arc<Vec<Expr>>),
     BasicValue(Arc<Vec<Expr>>),
@@ -83,6 +84,9 @@ impl Clone for Expr {
             },
             Expr::BasicEnvironmentAttribute(expr) => {
                 Expr::BasicEnvironmentAttribute(Arc::clone(expr))
+            }
+            Expr::BasicEnvironmentHeadAttribute(expr) => {
+                Expr::BasicEnvironmentHeadAttribute(Arc::clone(expr))
             }
             Expr::BasicIdentifier(expr) => Expr::BasicIdentifier(Arc::clone(expr)),
             Expr::BasicFunction(expr) => Expr::BasicFunction(Arc::clone(expr)),
@@ -155,6 +159,7 @@ impl Expr {
                 Rule::arguments => Expr::Arguments(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
                 Rule::subscript => Expr::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
                 Rule::basic_environment_attribute => Expr::BasicEnvironmentAttribute(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
+                Rule::basic_environment_head_attribute => Expr::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
                 Rule::basic_identifier => Expr::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
                 Rule::filter_statement => Expr::FilterStatement(Arc::new(pair.into_inner().map(parse_basics).collect())),
                 Rule::array => Expr::Array(Arc::new(pair.into_inner().map(parse_basics).collect())),
@@ -182,6 +187,8 @@ impl Expr {
             Rule::basic_function => Expr::BasicFunction(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_group => Expr::BasicGroup(Arc::new(Expr::parse(primary.into_inner()))),
             Rule::basic_value => Expr::BasicValue(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::basic_environment_attribute => Expr::BasicEnvironmentAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
+            Rule::basic_environment_head_attribute => Expr::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
             Rule::filter_component => Expr::FilterComponent(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::array => Expr::Array(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::string => Expr::new_string(primary.as_str()),
@@ -245,13 +252,16 @@ impl Expr {
     }
 
     pub fn validate_schema_expr(&self) -> Option<Vec<ValidationErr>> {
-        //TODO needs to be added
-        //BASIC_ENVIRONMENT_ATTRIBUTE
-        //BASIC_ENVIRONMENT_HEAD_ATTRIBUTE
         let check = |e: &Arc<Expr>| -> Option<ValidationErr> {
             match &**e {
                 Expr::AttributeFinderStep(_) => Some(ValidationErr::AttributeFinderStep),
                 Expr::HeadAttributeFinderStep(_) => Some(ValidationErr::HeadAttributeFinderStep),
+                Expr::BasicEnvironmentAttribute(_) => {
+                    Some(ValidationErr::BasicEnvironmentAttribute)
+                }
+                Expr::BasicEnvironmentHeadAttribute(_) => {
+                    Some(ValidationErr::BasicEnvironmentHeadAttribute)
+                }
                 _ => None,
             }
         };
@@ -260,9 +270,6 @@ impl Expr {
     }
 
     pub fn validate_target_expr(&self) -> Option<Vec<ValidationErr>> {
-        //TODO needs to be added
-        //BASIC_ENVIRONMENT_ATTRIBUTE
-        //BASIC_ENVIRONMENT_HEAD_ATTRIBUTE
         let check = |e: &Arc<Expr>| -> Option<ValidationErr> {
             match &**e {
                 Expr::Expr { op, .. } => match op {
@@ -272,6 +279,12 @@ impl Expr {
                 },
                 Expr::AttributeFinderStep(_) => Some(ValidationErr::AttributeFinderStep),
                 Expr::HeadAttributeFinderStep(_) => Some(ValidationErr::HeadAttributeFinderStep),
+                Expr::BasicEnvironmentAttribute(_) => {
+                    Some(ValidationErr::BasicEnvironmentAttribute)
+                }
+                Expr::BasicEnvironmentHeadAttribute(_) => {
+                    Some(ValidationErr::BasicEnvironmentHeadAttribute)
+                }
                 _ => None,
             }
         };
@@ -585,7 +598,8 @@ impl Iterator for ExprIter {
                 | Expr::Arguments(expr)
                 | Expr::Subscript(expr)
                 | Expr::BasicGroup(expr)
-                | Expr::BasicEnvironmentAttribute(expr) => {
+                | Expr::BasicEnvironmentAttribute(expr)
+                | Expr::BasicEnvironmentHeadAttribute(expr) => {
                     self.stack.push_back(Arc::clone(expr));
                 }
                 Expr::KeyStep(_)
@@ -1129,6 +1143,38 @@ mod tests {
         let mut validation_result = validation_result.unwrap().into_iter();
         assert_eq!(
             Some(ValidationErr::AttributeFinderStep),
+            validation_result.next()
+        );
+        assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn validate_target_expr_basic_environment_attribute() {
+        let pair = SaplParser::parse(Rule::target_expression, "<subject.name>")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(
+            Some(ValidationErr::BasicEnvironmentAttribute),
+            validation_result.next()
+        );
+        assert_eq!(None, validation_result.next());
+    }
+
+    #[test]
+    fn validate_target_expr_basic_environment_head_attribute() {
+        let pair = SaplParser::parse(Rule::target_expression, "|<subject.name>")
+            .unwrap()
+            .next()
+            .unwrap();
+        let validation_result = Expr::parse(pair.into_inner()).validate_target_expr();
+        assert!(validation_result.is_some());
+        let mut validation_result = validation_result.unwrap().into_iter();
+        assert_eq!(
+            Some(ValidationErr::BasicEnvironmentHeadAttribute),
             validation_result.next()
         );
         assert_eq!(None, validation_result.next());
