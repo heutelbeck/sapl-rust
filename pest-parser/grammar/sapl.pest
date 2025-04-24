@@ -136,6 +136,7 @@ arguments = { "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 basic = _{
     basic_group
   | basic_value
+  | value
   | basic_function
   | basic_environment_attribute
   | basic_environment_head_attribute
@@ -145,7 +146,7 @@ basic = _{
 
 basic_group = { "(" ~ expression ~ ")" ~ step* }
 
-basic_value = _{ value ~ step* }
+basic_value = { value ~ step+ }
 
 basic_function = { function_identifier ~ arguments ~ step* }
 
@@ -155,7 +156,7 @@ basic_environment_head_attribute = { "|<" ~ function_identifier ~ arguments? ~ "
 
 basic_identifier = { sapl_id ~ step* }
 
-basic_relative = { "@" ~ step* }
+basic_relative = _{ "@" ~ step* }
 
 function_identifier = { id ~ ("." ~ sapl_id)* }
 
@@ -195,7 +196,7 @@ escaped_key_step = @{ string }
 
 wildcard_step = { "*" }
 
-attribute_finder_step = @{ "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
+attribute_finder_step = { "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
 
 head_attribute_finder_step = @{ "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
 
