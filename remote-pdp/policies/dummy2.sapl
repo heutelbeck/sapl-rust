@@ -1,0 +1,5 @@
+policy "policy 2"
+permit
+    action.java.name == "findById"
+where
+    subject == "WILLI";

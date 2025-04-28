@@ -1,4 +1,4 @@
-#    Copyright 2024 Stefan Weng
+#    Copyright 2025 Stefan Weng
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may not
 #    use this file except in compliance with the License. You may obtain a copy
@@ -12,6 +12,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-[workspace]
+[package]
+name = "remote-pdp"
+version = "0.1.0"
+edition = "2024"
 
-members = [ "antlr-parser", "embedded-pdp", "file-reader", "pest-parser", "remote-pdp", "tokio-stream"]
+[dependencies]
+embedded-pdp = { version = "0.1.0", path = "../embedded-pdp" }
+pest-parser = { version = "0.1.0", path = "../pest-parser" }
+rocket = { version = "0.5.1", features = ["json"] }
+serde = "1.0.219"

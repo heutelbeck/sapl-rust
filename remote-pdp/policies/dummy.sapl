@@ -1,0 +1,5 @@
+policy "policy 1"
+permit
+    action == "read"
+where
+    subject == "WILLI";
