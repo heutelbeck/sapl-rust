@@ -121,10 +121,16 @@ impl Policy {
         };
 
         match target {
-            Err(_) => Decision::Indeterminate,
+            Err(e) => {
+                println!("Err evaluate target expression: {:#?}", e);
+                Decision::Indeterminate
+            }
             Ok(false) => Decision::NotApplicable,
             Ok(true) => match self.evaluate_where_statement(auth_subscription) {
-                Err(_) => Decision::Indeterminate,
+                Err(e) => {
+                    println!("Err evaluate where statement: {:#?}", e);
+                    Decision::Indeterminate
+                }
                 Ok(false) => Decision::NotApplicable,
                 Ok(true) => Decision::entitlement(&self.entitlement),
             },

@@ -242,10 +242,15 @@ impl Expr {
     }
 
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Result<bool, String> {
-        match self.eval_root(auth_subscription) {
-            Expr::Boolean(b) => Ok(b),
+        use self::Expr::*;
+
+        match self {
+            Boolean(b) => Ok(*b),
+            Expr { .. } => self
+                .evaluate_expr(auth_subscription)?
+                .evaluate(auth_subscription),
             other => Err(format!(
-                "Expr::evaluation result expected Boolean, found {:#?}",
+                "Expr::evaluate expected Boolean or Expr, found {:#?}",
                 other
             )),
         }
@@ -326,7 +331,8 @@ impl Expr {
                 ) => {
                     let mut result = Expr {
                         lhs: lhs
-                            .eval_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .evaluate_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .unwrap()
                             .into(),
                         op: EagerAnd,
                         rhs: rhs.clone(),
@@ -346,7 +352,8 @@ impl Expr {
                 ) => {
                     let mut result = Expr {
                         lhs: lhs
-                            .eval_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .evaluate_expr(&AuthorizationSubscription::new_example_subscription1())
+                            .unwrap()
                             .into(),
                         op: Addition,
                         rhs: rhs.clone(),
@@ -359,70 +366,73 @@ impl Expr {
         }
     }
 
-    fn eval_root(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
-        use self::Expr::*;
-
-        match self {
-            Boolean(b) => Boolean(*b),
-            Expr { .. } => self.eval_expr(auth_subscription),
-            others => unimplemented!("Expr::eval_root {:#?} is not implemented", others),
-        }
-    }
-
-    fn eval_expr(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
+    fn evaluate_expr(&self, auth_subscription: &AuthorizationSubscription) -> Result<Expr, String> {
         use self::Expr::*;
 
         if let Expr { lhs, op, rhs } = self {
             match (&**lhs, op, &**rhs) {
                 (Boolean(_), _, Boolean(_)) => self.eval_boolean_expr(),
-                (Integer(_), _, Integer(_)) => self.eval_integer_expr(),
+                (Integer(_), _, Integer(_)) => self.evaluate_int_expr(),
                 (BasicIdentifier(_), _, _) => self.eval_basic_identifier(auth_subscription),
-                (Expr { .. }, _, Integer(_)) => self.eval_expr_comp_integer(auth_subscription),
+                (Expr { .. }, _, Integer(_)) => self.evaluate_expr_comp_integer(auth_subscription),
                 (Expr { .. }, _, _) => Expr {
-                    lhs: lhs.eval_expr(auth_subscription).into(),
+                    lhs: lhs.evaluate_expr(auth_subscription)?.into(),
                     op: op.clone(),
                     rhs: rhs.clone(),
                 }
-                .eval_expr(auth_subscription),
+                .evaluate_expr(auth_subscription),
                 (_, _, Expr { .. }) => Expr {
                     lhs: lhs.clone(),
                     op: op.clone(),
-                    rhs: rhs.eval_expr(auth_subscription).into(),
+                    rhs: rhs.evaluate_expr(auth_subscription)?.into(),
                 }
-                .eval_expr(auth_subscription),
-                others => unimplemented!("Expr::eval_expr {:#?} is not implemented", others),
+                .evaluate_expr(auth_subscription),
+                others => Err(format!(
+                    "Expr::evaluate_expr {:#?} is not implemented",
+                    others
+                )),
             }
         } else {
-            unimplemented!("Expr::eval_expr {:#?} is not implemented", self);
+            Err(format!(
+                "Expr::evaluate_expr {:#?} is not implemented",
+                self
+            ))
         }
     }
 
-    fn eval_boolean_expr(&self) -> Expr {
+    fn eval_boolean_expr(&self) -> Result<Expr, String> {
         use self::Expr::*;
         use Op::*;
 
         if let Expr { lhs, op, rhs } = self {
             match (&**lhs, op, &**rhs) {
-                (Boolean(lhs), LazyOr, Boolean(rhs)) => Boolean(*lhs || *rhs),
-                (Boolean(lhs), LazyAnd, Boolean(rhs)) => Boolean(*lhs && *rhs),
-                (Boolean(lhs), EagerOr, Boolean(rhs)) => Boolean(lhs | rhs),
-                (Boolean(lhs), EagerAnd, Boolean(rhs)) => Boolean(lhs & rhs),
-                (Boolean(lhs), Equal, Boolean(rhs)) => Boolean(lhs == rhs),
-                (Boolean(lhs), NotEqual, Boolean(rhs)) => Boolean(lhs != rhs),
-                (Boolean(lhs), Less, Boolean(rhs)) => Boolean(lhs > rhs),
-                (Boolean(lhs), Greater, Boolean(rhs)) => Boolean(lhs < rhs),
-                (Boolean(lhs), LessEqual, Boolean(rhs)) => Boolean(lhs <= rhs),
-                (Boolean(lhs), GreaterEqual, Boolean(rhs)) => Boolean(lhs >= rhs),
-                others => {
-                    unimplemented!("Expr::eval_boolean_expr {:#?} is not implemented", others)
-                }
+                (Boolean(lhs), LazyOr, Boolean(rhs)) => Ok(Boolean(*lhs || *rhs)),
+                (Boolean(lhs), LazyAnd, Boolean(rhs)) => Ok(Boolean(*lhs && *rhs)),
+                (Boolean(lhs), EagerOr, Boolean(rhs)) => Ok(Boolean(lhs | rhs)),
+                (Boolean(lhs), EagerAnd, Boolean(rhs)) => Ok(Boolean(lhs & rhs)),
+                (Boolean(lhs), Equal, Boolean(rhs)) => Ok(Boolean(lhs == rhs)),
+                (Boolean(lhs), NotEqual, Boolean(rhs)) => Ok(Boolean(lhs != rhs)),
+                (Boolean(lhs), Less, Boolean(rhs)) => Ok(Boolean(lhs > rhs)),
+                (Boolean(lhs), Greater, Boolean(rhs)) => Ok(Boolean(lhs < rhs)),
+                (Boolean(lhs), LessEqual, Boolean(rhs)) => Ok(Boolean(lhs <= rhs)),
+                (Boolean(lhs), GreaterEqual, Boolean(rhs)) => Ok(Boolean(lhs >= rhs)),
+                others => Err(format!(
+                    "Expr::eval_boolean_expr {:#?} is not implemented",
+                    others
+                )),
             }
         } else {
-            unimplemented!("Expr::eval_boolean_expr {:#?} is not implemented", self);
+            Err(format!(
+                "Expr::eval_boolean_expr {:#?} is not implemented",
+                self
+            ))
         }
     }
 
-    fn eval_expr_comp_integer(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
+    fn evaluate_expr_comp_integer(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Result<Expr, String> {
         use self::Expr::*;
         use Op::*;
 
@@ -439,66 +449,75 @@ impl Expr {
                     Integer(_),
                 ) => match op {
                     Greater | Less | Equal | LessEqual | GreaterEqual => Expr {
-                        lhs: lhs.eval_expr(auth_subscription).into(),
+                        lhs: lhs.evaluate_expr(auth_subscription)?.into(),
                         op: EagerAnd,
                         rhs: Expr {
                             lhs: r.clone(),
                             op: op.clone(),
                             rhs: rhs.clone(),
                         }
-                        .eval_expr(auth_subscription)
+                        .evaluate_expr(auth_subscription)?
                         .into(),
                     }
-                    .eval_expr(auth_subscription),
+                    .evaluate_expr(auth_subscription),
                     _ => Expr {
-                        lhs: lhs.eval_expr(auth_subscription).into(),
+                        lhs: lhs.evaluate_expr(auth_subscription)?.into(),
                         op: outer_op.clone(),
                         rhs: rhs.clone(),
                     }
-                    .eval_expr(auth_subscription),
+                    .evaluate_expr(auth_subscription),
                 },
                 _ => Expr {
-                    lhs: lhs.eval_expr(auth_subscription).into(),
+                    lhs: lhs.evaluate_expr(auth_subscription)?.into(),
                     op: outer_op.clone(),
                     rhs: rhs.clone(),
                 }
-                .eval_expr(auth_subscription),
+                .evaluate_expr(auth_subscription),
             }
         } else {
-            unimplemented!(
-                "Expr::eval_expr_comp_integer {:#?} is not implemented",
+            Err(format!(
+                "Expr::evaluate_expr_comp_integer {:#?} is not implemented",
                 self
-            );
+            ))
         }
     }
 
-    fn eval_integer_expr(&self) -> Expr {
+    fn evaluate_int_expr(&self) -> Result<Expr, String> {
         use self::Expr::*;
         use Op::*;
 
         if let Expr { lhs, op, rhs } = self {
             match (&**lhs, op, &**rhs) {
-                (Integer(lhs), Equal, Integer(rhs)) => Boolean(lhs == rhs),
-                (Integer(lhs), NotEqual, Integer(rhs)) => Boolean(lhs != rhs),
-                (Integer(lhs), Less, Integer(rhs)) => Boolean(lhs < rhs),
-                (Integer(lhs), Greater, Integer(rhs)) => Boolean(lhs > rhs),
-                (Integer(lhs), LessEqual, Integer(rhs)) => Boolean(lhs <= rhs),
-                (Integer(lhs), GreaterEqual, Integer(rhs)) => Boolean(lhs >= rhs),
-                (Integer(lhs), Addition, Integer(rhs)) => Integer(lhs.saturating_add(*rhs)),
-                (Integer(lhs), Subtract, Integer(rhs)) => Integer(lhs.saturating_sub(*rhs)),
-                (Integer(lhs), Multiplication, Integer(rhs)) => Integer(lhs.saturating_mul(*rhs)),
-                (Integer(lhs), Division, Integer(rhs)) => Integer(lhs.saturating_div(*rhs)),
-                (Integer(lhs), Modulo, Integer(rhs)) => Integer(lhs % rhs),
-                others => {
-                    unimplemented!("Expr::eval_integer_expr {:#?} is not implemented", others)
+                (Integer(lhs), Equal, Integer(rhs)) => Ok(Boolean(lhs == rhs)),
+                (Integer(lhs), NotEqual, Integer(rhs)) => Ok(Boolean(lhs != rhs)),
+                (Integer(lhs), Less, Integer(rhs)) => Ok(Boolean(lhs < rhs)),
+                (Integer(lhs), Greater, Integer(rhs)) => Ok(Boolean(lhs > rhs)),
+                (Integer(lhs), LessEqual, Integer(rhs)) => Ok(Boolean(lhs <= rhs)),
+                (Integer(lhs), GreaterEqual, Integer(rhs)) => Ok(Boolean(lhs >= rhs)),
+                (Integer(lhs), Addition, Integer(rhs)) => Ok(Integer(lhs.saturating_add(*rhs))),
+                (Integer(lhs), Subtract, Integer(rhs)) => Ok(Integer(lhs.saturating_sub(*rhs))),
+                (Integer(lhs), Multiplication, Integer(rhs)) => {
+                    Ok(Integer(lhs.saturating_mul(*rhs)))
                 }
+                (Integer(lhs), Division, Integer(rhs)) => Ok(Integer(lhs.saturating_div(*rhs))),
+                (Integer(lhs), Modulo, Integer(rhs)) => Ok(Integer(lhs % rhs)),
+                others => Err(format!(
+                    "Expr::evaluate_int_expr {:#?} is not implemented",
+                    others
+                )),
             }
         } else {
-            unimplemented!("Expr::eval_integer_expr {:#?} is not implemented", self);
+            Err(format!(
+                "Expr::evaluate_int_expr {:#?} is not implemented",
+                self
+            ))
         }
     }
 
-    fn eval_basic_identifier(&self, auth_subscription: &AuthorizationSubscription) -> Expr {
+    fn eval_basic_identifier(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Result<Expr, String> {
         use self::Expr::*;
         use Op::*;
 
@@ -523,34 +542,37 @@ impl Expr {
                 };
 
                 return match (lhs_result, op, &**rhs) {
-                    (Value::String(l), Equal, String(s)) => Boolean(l.eq(s)),
+                    (Value::String(l), Equal, String(s)) => Ok(Boolean(l.eq(s))),
                     (Value::Number(l), _, Integer(r)) => {
                         let num = l.as_i64();
                         match num {
                             Some(n) => match op {
-                                Equal => Boolean(n == *r as i64),
-                                NotEqual => Boolean(n != *r as i64),
-                                Less => Boolean(n < *r as i64),
-                                Greater => Boolean(n > *r as i64),
-                                LessEqual => Boolean(n <= *r as i64),
-                                GreaterEqual => Boolean(n >= *r as i64),
-                                _ => Boolean(false),
+                                Equal => Ok(Boolean(n == *r as i64)),
+                                NotEqual => Ok(Boolean(n != *r as i64)),
+                                Less => Ok(Boolean(n < *r as i64)),
+                                Greater => Ok(Boolean(n > *r as i64)),
+                                LessEqual => Ok(Boolean(n <= *r as i64)),
+                                GreaterEqual => Ok(Boolean(n >= *r as i64)),
+                                _ => Ok(Boolean(false)),
                             },
-                            None => Boolean(false),
+                            None => Ok(Boolean(false)),
                         }
                     }
-                    (Value::Bool(l), Equal, Boolean(r)) => Boolean(l == *r),
-                    (Value::Bool(l), NotEqual, Boolean(r)) => Boolean(l != *r),
-                    (Value::Null, _, _) => Boolean(false),
-                    (Value::Object(_), _, _) => Boolean(false),
-                    others => panic!(
+                    (Value::Bool(l), Equal, Boolean(r)) => Ok(Boolean(l == *r)),
+                    (Value::Bool(l), NotEqual, Boolean(r)) => Ok(Boolean(l != *r)),
+                    (Value::Null, _, _) => Ok(Boolean(false)),
+                    (Value::Object(_), _, _) => Ok(Boolean(false)),
+                    others => Err(format!(
                         "Expr::eval_basic_identifier {:#?} is not implemented",
                         others
-                    ),
+                    )),
                 };
             }
         }
-        panic!("Expr::eval_basic_identifier expected, found {:#?}", self);
+        Err(format!(
+            "Expr::eval_basic_identifier expected, found {:#?}",
+            self
+        ))
     }
 
     pub fn iter(&self) -> ExprIter {
