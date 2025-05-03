@@ -14,4 +14,4 @@
 
 [workspace]
 
-members = [ "antlr-parser", "embedded-pdp", "file-reader", "pest-parser", "remote-pdp", "tokio-stream"]
+members = [ "antlr-parser", "embedded-pdp", "file-reader", "pest-parser", "remote-pdp", "tokio-stream-demo"]

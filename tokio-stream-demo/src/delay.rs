@@ -20,6 +20,7 @@ use std::task::{Context, Poll};
 use std::thread;
 use std::time::Instant;
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct Delay {
     pub when: Instant,
 }

@@ -1,5 +1,5 @@
-/*
-    Copyright 2024 Stefan Weng
+/*inter
+    Copyright 2025 Stefan Weng
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not
     use this file except in compliance with the License. You may obtain a copy
@@ -14,7 +14,9 @@
     under the License.
 */
 
-use crate::{combine_eager::CombineEager, combine_lazy::CombineLazy, delay::Delay};
+use crate::delay::Delay;
+use crate::stream_sapl::StreamSapl;
+use crate::val::Val;
 use std::{
     future::Future,
     pin::Pin,
@@ -23,15 +25,18 @@ use std::{
 };
 use tokio_stream::Stream;
 
-pub struct BooleanInterval {
+#[derive(PartialEq, Debug, Clone)]
+pub struct IntegerInterval {
+    value: i64,
     state: bool,
     duration: Duration,
     delay: Delay,
 }
 
-impl BooleanInterval {
-    pub fn new(duration: Duration) -> Self {
+impl IntegerInterval {
+    pub fn new(value: i64, duration: Duration) -> Self {
         Self {
+            value,
             state: false,
             duration,
             delay: Delay {
@@ -39,37 +44,19 @@ impl BooleanInterval {
             },
         }
     }
-
-    pub fn combine_eager<U>(self, other: U) -> CombineEager<Self, U>
-    where
-        U: Stream<Item = <BooleanInterval as Stream>::Item>,
-    {
-        CombineEager::new(self, other)
-    }
-
-    pub fn combine_lazy<U>(self, other: U) -> CombineLazy<Self, U>
-    where
-        U: Stream<Item = <BooleanInterval as Stream>::Item>,
-    {
-        CombineLazy::new(self, other)
-    }
 }
 
-impl Stream for BooleanInterval {
-    type Item = bool;
+impl Stream for IntegerInterval {
+    type Item = Val;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<bool>> {
-        /*if self.state == false {
-            // No more delays
-            return Poll::Ready(None);
-        }*/
-
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match Pin::new(&mut self.delay).poll(cx) {
             Poll::Ready(_) => {
                 let when = self.delay.when + self.duration;
                 self.delay = Delay { when };
                 self.state = !self.state;
-                Poll::Ready(Some(self.state))
+                self.value = self.value.wrapping_add(1);
+                Poll::Ready(Some(Val::Integer(self.value)))
             }
             Poll::Pending => Poll::Pending,
         }

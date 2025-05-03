@@ -83,9 +83,7 @@ where
                 (Ready(None), Ready(Some(_))) => {
                     unreachable!("How to deal with the end of a stream?");
                 }
-                (Ready(None), Ready(None)) => {
-                    unreachable!("How to deal with the end of a stream?");
-                }
+                (Ready(None), Ready(None)) => return Ready(None),
                 (Ready(None), Pending) => {
                     unreachable!("How to deal with the end of a stream?");
                 }

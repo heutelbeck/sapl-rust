@@ -13,16 +13,14 @@
     License for the specific language governing permissions and limitations
     under the License.
 */
+use tokio_stream_demo::*;
 
-mod boolean_stream;
-mod combine_eager;
-mod combine_lazy;
-mod delay;
-
-use boolean_stream::BooleanInterval;
-use futures::pin_mut;
+use futures::{pin_mut, stream};
 use std::{
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 use tokio::{select, time::interval};
@@ -31,6 +29,7 @@ use tokio_stream::{wrappers::IntervalStream, Stream, StreamExt};
 #[tokio::main]
 async fn main() {
     tokio::join!(
+        stream_expr(),
         simple_stream_1(),
         simple_stream_2(),
         simple_stream_3(),
@@ -41,6 +40,28 @@ async fn main() {
         combine_eager_solution2(),
         combine_lazy_solution1(),
     );
+}
+
+async fn stream_expr() {
+    //let mut e = Ast::Boolean(true).eval();
+    //println!("Die Expr lautet wie folgt: {:#?}", e.eval());
+    let mut e = Ast::Boolean(true).eval();
+    let mut e = Ast::Integer(42).eval().fuse();
+    //let mut e = Ast::BooleanStream(stream1).eval().fuse();
+    let stream1 = BooleanIntervalNew::new(Duration::from_millis(1000));
+    let stream2 = BooleanIntervalNew::new(Duration::from_millis(10000));
+    let mut e = stream1.eval_and(stream2);
+
+    let mut stream1 = IntegerInterval::new(5, Duration::from_millis(1000));
+    let mut stream2 = IntegerInterval::new(10, Duration::from_millis(2000));
+    let mut e = stream1.eval_ge(stream2);
+
+    let mut e = TimeSecInterval::default();
+    let mut e = e.eval_ge(once(Val::Integer(30)));
+
+    while let Some(v) = e.next().await {
+        println!("evaluation stream: {:#?}", v);
+    }
 }
 
 async fn combine_lazy_solution1() {
@@ -70,7 +91,7 @@ async fn combine_eager_solution2() {
 
     pin_mut!(stream);
 
-    while let Some(_) = stream.next().await {
+    while (stream.next().await).is_some() {
         println!("stream_combine_eager #2 = Both are true");
     }
 }
