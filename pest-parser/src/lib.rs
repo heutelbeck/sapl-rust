@@ -22,20 +22,22 @@ mod combine_expr;
 mod decision;
 mod delay;
 mod expr;
+pub mod functions;
 mod import;
 pub mod policy;
 mod schema;
+pub mod stream_sapl;
 mod transformation;
-mod where_statement;
+mod val;
 
 pub use crate::advice::Advice;
 pub use crate::decision::Decision;
-pub use crate::expr::{Expr, Op};
+pub use crate::expr::{Ast, Op};
 pub use crate::import::Import;
 pub use crate::policy::Policy;
 pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
-pub use crate::where_statement::WhereStatement;
+pub use crate::val::Val;
 
 use async_stream::stream;
 use authorization_subscription::AuthorizationSubscription;
@@ -45,7 +47,11 @@ use pest_derive::Parser;
 use std::future;
 use std::pin::Pin;
 use std::sync::Arc;
+use stream_sapl::StreamSapl;
+use stream_sapl::{once_decision, once_val};
 use tokio_stream::Stream;
+
+type BoxedValStream = Pin<Box<dyn Stream<Item = Result<Val, String>>>>;
 
 #[derive(Parser)]
 #[grammar = "grammar/sapl.pest"]
@@ -136,7 +142,7 @@ impl PolicySet {
                     policy_set.combining_algorithm = CombiningAlgorithm::new(pair.as_str())
                 }
                 Rule::target_expression => {
-                    policy_set.target_exp = Some(Arc::new(Expr::parse(pair.clone().into_inner())))
+                    policy_set.target_exp = Some(Arc::new(Ast::parse(pair.clone().into_inner())))
                 }
                 Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner())),
                 rule => unreachable!(
@@ -185,14 +191,14 @@ impl SaplDocument {
         }
     }
 
-    fn evaluate_as_stream(
+    pub fn evaluate_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<dyn Stream<Item = Decision> + '_>> {
+    ) -> Pin<Box<(dyn Stream<Item = Decision>)>> {
         use DocumentBody::*;
         match &self.body {
             Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
-            PolicySet(ps) => panic!("not implemented"), //Box::pin(ps.evaluate_as_stream(auth_subscription)),
+            PolicySet(_) => panic!("not implemented"),
         }
     }
 
@@ -250,7 +256,7 @@ impl DocumentBody {
 pub struct PolicySet {
     pub name: String,
     combining_algorithm: CombiningAlgorithm,
-    target_exp: Option<Arc<Expr>>,
+    target_exp: Option<Arc<Ast>>,
     policies: Vec<Policy>,
 }
 
@@ -303,6 +309,13 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
         schemas,
         body: parse(pairs),
     })
+}
+
+pub trait Eval {
+    fn eval(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Pin<Box<(dyn Stream<Item = Result<Val, String>>)>>;
 }
 
 #[cfg(test)]

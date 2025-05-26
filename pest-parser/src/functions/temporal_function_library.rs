@@ -14,18 +14,10 @@
     under the License.
 */
 
-use crate::{Ast, Rule};
-use std::sync::Arc;
+use chrono::{DateTime, Local, Timelike};
 
-#[derive(Debug)]
-pub struct Advice {
-    expr: Arc<Ast>,
-}
+use crate::Val;
 
-impl Advice {
-    pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
-        Advice {
-            expr: Arc::new(Ast::parse(pair.into_inner())),
-        }
-    }
+pub fn second_of(dt: DateTime<Local>) -> Val {
+    Val::Integer(dt.second().try_into().unwrap_or(0))
 }

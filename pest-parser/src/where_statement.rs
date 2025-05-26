@@ -15,11 +15,11 @@
 */
 
 use crate::authorization_subscription::AuthorizationSubscription;
-use crate::{Expr, Rule};
+use crate::{Ast, Rule};
 
 #[derive(Debug)]
 pub enum WhereStatement {
-    Expression(Expr),
+    Expression(Ast),
     SaplPairs(Vec<WhereStatement>),
     SaplPair(Vec<WhereStatement>),
     VariableAssignment(Vec<WhereStatement>),
@@ -40,7 +40,7 @@ impl WhereStatement {
         use WhereStatement::*;
 
         match pair.as_rule() {
-            Rule::condition => Expression(Expr::parse(pair.into_inner())),
+            Rule::condition => Expression(Ast::parse(pair.into_inner())),
             Rule::variable_assignment => VariableAssignment(pair.into_inner().map(WhereStatement::parse).collect()),
             Rule::string => WhereStatement::new_string(pair.as_str()),
             Rule::boolean_literal => WhereStatement::Boolean(pair.as_str().parse().unwrap()),
@@ -66,7 +66,7 @@ impl WhereStatement {
         match self.eval_root(auth_subscription) {
             WhereStatement::Boolean(b) => Ok(b),
             other => Err(format!(
-                "Expr::evaluation result expected Boolean, found {:#?}",
+                "Ast::evaluation result expected Boolean, found {:#?}",
                 other
             )),
         }
@@ -77,7 +77,7 @@ impl WhereStatement {
 
         match self {
             Boolean(b) => Boolean(*b),
-            others => unimplemented!("Expr::eval_root {:#?} is not implemented", others),
+            others => unimplemented!("Ast::eval_root {:#?} is not implemented", others),
         }
     }
 

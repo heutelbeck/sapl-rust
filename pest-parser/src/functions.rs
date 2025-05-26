@@ -14,18 +14,8 @@
     under the License.
 */
 
-use crate::{Ast, Rule};
-use std::sync::Arc;
+mod temporal_function_library;
+pub use temporal_function_library::second_of;
 
-#[derive(Debug)]
-pub struct Advice {
-    expr: Arc<Ast>,
-}
-
-impl Advice {
-    pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
-        Advice {
-            expr: Arc::new(Ast::parse(pair.into_inner())),
-        }
-    }
-}
+mod local_time_stream;
+pub use local_time_stream::LocalTimeStream;

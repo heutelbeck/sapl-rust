@@ -14,7 +14,9 @@
     under the License.
 */
 
-use crate::{combine_expr::CombineExpr, delay::Delay, Entitlement};
+use crate::delay::Delay;
+use crate::Val;
+use chrono::Local;
 use std::{
     future::Future,
     pin::Pin,
@@ -23,46 +25,34 @@ use std::{
 };
 use tokio_stream::Stream;
 
-pub struct BooleanInterval {
-    state: bool,
+pub struct LocalTimeStream {
     duration: Duration,
     delay: Delay,
 }
 
-impl BooleanInterval {
-    pub fn new(duration: Duration) -> Self {
+impl Default for LocalTimeStream {
+    fn default() -> Self {
         Self {
-            state: false,
-            duration,
+            duration: Duration::from_millis(1000),
             delay: Delay {
                 when: Instant::now(),
             },
         }
     }
-
-    pub fn evaluate_with<U>(self, other: U, entitlement: Entitlement) -> CombineExpr<Self, U>
-    where
-        U: Stream<Item = <BooleanInterval as Stream>::Item>,
-    {
-        CombineExpr::new(self, other, entitlement)
-    }
 }
 
-impl Stream for BooleanInterval {
-    type Item = bool;
+impl Stream for LocalTimeStream {
+    type Item = Result<Val, String>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<bool>> {
-        /*if self.state == false {
-            // No more delays
-            return Poll::Ready(None);
-        }*/
-
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Val, String>>> {
         match Pin::new(&mut self.delay).poll(cx) {
             Poll::Ready(_) => {
                 let when = self.delay.when + self.duration;
                 self.delay = Delay { when };
-                self.state = !self.state;
-                Poll::Ready(Some(self.state))
+                Poll::Ready(Some(Ok(Val::DateTime(Local::now()))))
             }
             Poll::Pending => Poll::Pending,
         }

@@ -14,13 +14,13 @@
     under the License.
 */
 
-use crate::{basic_identifier_expression::BasicIdentifierExpression, Expr, Rule};
+use crate::{basic_identifier_expression::BasicIdentifierExpression, Ast, Rule};
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Schema {
     sapl_id: String,
-    expr: Arc<Expr>,
+    expr: Arc<Ast>,
 }
 
 impl Schema {
@@ -39,7 +39,7 @@ impl Schema {
                     rule
                 ),
             },
-            expr: Arc::new(Expr::parse(inner_rules)),
+            expr: Arc::new(Ast::parse(inner_rules)),
         }
     }
 

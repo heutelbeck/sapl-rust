@@ -14,28 +14,30 @@
     under the License.
 */
 
-use async_stream::stream;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::Stream;
 
 use crate::advice::Advice;
 use crate::authorization_subscription::AuthorizationSubscription;
-use crate::boolean_stream::BooleanInterval;
-use crate::expr::Expr;
+use crate::expr::Ast;
+use crate::stream_sapl::StreamSapl;
 use crate::transformation::Transformation;
-use crate::where_statement::WhereStatement;
+use crate::BoxedValStream;
 use crate::Decision;
 use crate::Entitlement;
+use crate::Eval;
 use crate::Rule;
+use crate::Val;
+use crate::{once_decision, once_val};
 
 #[derive(Debug, Default)]
 pub struct Policy {
     pub name: String,
     entitlement: Entitlement,
-    target_exp: Option<Arc<Expr>>,
-    where_statements: Option<Vec<WhereStatement>>,
-    obligations: Option<Box<Expr>>,
+    target_exp: Option<Arc<Ast>>,
+    where_statements: Option<Arc<Vec<Ast>>>,
+    obligations: Option<Box<Ast>>,
     advice: Option<Vec<Advice>>,
     transformation: Option<Vec<Transformation>>,
 }
@@ -53,18 +55,18 @@ impl Policy {
                 }
                 Rule::entitlement => policy.entitlement = Entitlement::new(pair.as_str()),
                 Rule::target_expression => {
-                    policy.target_exp = Some(Arc::new(Expr::parse(pair.clone().into_inner())))
+                    policy.target_exp = Some(Arc::new(Ast::parse(pair.clone().into_inner())))
                 }
                 Rule::where_statement => {
-                    policy.where_statements = Some(
+                    policy.where_statements = Some(Arc::new(
                         pair.clone()
                             .into_inner()
-                            .map(WhereStatement::parse)
+                            .map(Ast::parse_where_statement)
                             .collect(),
-                    );
+                    ));
                 }
                 Rule::obligation => {
-                    policy.obligations = Some(Box::new(Expr::parse(pair.clone().into_inner())));
+                    policy.obligations = Some(Box::new(Ast::parse(pair.clone().into_inner())));
                 }
                 Rule::advice => {
                     policy.advice = Some(pair.clone().into_inner().map(Advice::parse).collect());
@@ -137,10 +139,34 @@ impl Policy {
         }
     }
 
+    pub fn evaluate_where_statement(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Result<bool, String> {
+        let result = Ok(true);
+
+        if self.where_statements.is_none() {
+            return result;
+        }
+
+        for condition in self.where_statements.as_ref().unwrap().iter() {
+            match condition.evaluate(auth_subscription) {
+                Ok(true) => {}
+                Ok(false) => return Ok(false),
+                Err(e) => {
+                    println!("evaluate_where_statement got {:#?}", e);
+                    return Ok(false);
+                }
+            }
+        }
+
+        result
+    }
+
     pub fn evaluate_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> impl Stream<Item = Decision> + '_ {
+    ) -> Pin<Box<(dyn Stream<Item = Decision>)>> {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
         // false (not matching) |   don’t care  |   NOT_APPLICABLE
@@ -156,45 +182,48 @@ impl Policy {
             None => Ok(true),
         };
 
-        let mut condition = BooleanInterval::new(Duration::from_millis(6000));
-
-        stream! {
-            while let Some(v) = condition.next().await {
-                let decision = match target {
-                    Err(_) => Decision::Indeterminate,
-                    Ok(false) => Decision::NotApplicable,
-                    Ok(true) => match v {
-                        false => Decision::NotApplicable,
-                        true => Decision::entitlement(&self.entitlement),
-                    },
-                };
-                yield decision;
+        match target {
+            Err(e) => {
+                println!("Err evaluate target expression: {:#?}", e);
+                Box::pin(once_decision(Decision::Indeterminate))
             }
+            Ok(false) => Box::pin(once_decision(Decision::NotApplicable)),
+            Ok(true) => Box::pin(
+                self.evaluate_where_as_stream(auth_subscription)
+                    .eval_to_decision(self.entitlement.clone()),
+            ),
         }
     }
 
-    pub fn evaluate_where_statement(
+    fn evaluate_where_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Result<bool, String> {
-        let result = Ok(true);
-
+    ) -> BoxedValStream {
         if self.where_statements.is_none() {
-            return result;
+            return Box::pin(once_val(Val::Boolean(true)));
         }
 
-        for condition in self.where_statements.as_ref().unwrap() {
-            match condition.evaluate(auth_subscription) {
-                Ok(true) => {}
-                Ok(false) => return Ok(false),
-                Err(e) => {
-                    println!("evaluate_where_statement got {:#?}", e);
-                    return Ok(false);
-                }
+        let mut eval_streams: Vec<_> = self
+            .where_statements
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| s.eval(auth_subscription))
+            .collect();
+
+        fn combine(first: BoxedValStream, streams: &mut Vec<BoxedValStream>) -> BoxedValStream {
+            match streams.pop() {
+                Some(s) => Box::pin(first.eval_and(combine(s, streams))),
+                None => Box::pin(first),
             }
         }
 
-        result
+        combine(
+            eval_streams
+                .pop()
+                .expect("Error evaluating where statement"),
+            &mut eval_streams,
+        )
     }
 }
 

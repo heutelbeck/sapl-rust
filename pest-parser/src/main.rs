@@ -14,9 +14,42 @@
     under the License.
 */
 
-use pest_parser::parse_sapl_file;
+use pest_parser::{
+    authorization_subscription::AuthorizationSubscription,
+    functions::LocalTimeStream,
+    parse_sapl_file,
+    stream_sapl::{once_val, StreamSapl},
+    Val,
+};
+use tokio_stream::StreamExt;
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    //sync_demo_part();
+    tokio::join!(async_demo_part());
+}
+
+async fn async_demo_part() {
+    //TODO async stuff
+    let time_policy =
+        parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;");
+
+    let mut p = time_policy
+        .unwrap()
+        .evaluate_as_stream(&AuthorizationSubscription::new_example_subscription1());
+
+    let mut o = once_val(Val::Integer(20));
+
+    let mut b = LocalTimeStream::default().eval_seconds_of();
+
+    let mut b = o.eval_le(b);
+
+    while let Some(v) = p.next().await {
+        println!("evaluation stream: {:#?}", v);
+    }
+}
+
+fn sync_demo_part() {
     {
         let policy_new = parse_sapl_file("policy \"policy 1\" permit");
         println!("{:#?}", policy_new);
