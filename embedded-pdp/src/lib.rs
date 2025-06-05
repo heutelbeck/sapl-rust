@@ -18,13 +18,13 @@
 mod combining_algorithm;
 mod file_reader;
 mod pdp_config;
+mod stream_decision;
 
 //Re-export types from pest-parser that users need
 pub use crate::file_reader::*;
 pub use pest_parser::authorization_subscription::AuthorizationSubscription;
 
-use crate::combining_algorithm::PolicyDocumentCombiningAlgorithm;
-use crate::pdp_config::PdpConfig;
+use crate::{combining_algorithm::PolicyDocumentCombiningAlgorithm, pdp_config::PdpConfig};
 use pest_parser::{Decision, SaplDocument, parse_sapl_file};
 use serde_json::{Value, json};
 use std::{
@@ -70,6 +70,21 @@ impl Pdp {
             others => unimplemented!("The pdp alogrithm {:#?} is not yet implemented.", others),
         }
     }
+
+    // pub fn decide(&self, auth_sub: AuthorizationSubscription) -> Value {
+    //     use PolicyDocumentCombiningAlgorithm::*;
+    //
+    //     // Acquire read locks to access the inner data
+    //     // TODO check if files gets updated how to handle this?
+    //     let config_guard = self.config.read().expect("Failed to read config lock");
+    //     let policies_guard = self.policies.read().expect("Failed to read policies lock");
+    //
+    //     match &config_guard.algorithm {
+    //         DENY_UNLESS_PERMIT => policies_guard.iter().deny_unless_permit(&auth_sub),
+    //         PERMIT_UNLESS_DENY => policies_guard.iter().permit_unless_deny(&auth_sub),
+    //         others => unimplemented!("The pdp alogrithm {:#?} is not yet implemented.", others),
+    //     }
+    // }
 }
 
 fn recurse(path: impl AsRef<Path>) -> Vec<PathBuf> {
@@ -106,7 +121,12 @@ fn read_all_policies(sapl_files: Vec<PathBuf>) -> Vec<SaplDocument> {
                 return vec![];
             };
             if let Ok(policy) = parse_sapl_file(&s) {
-                return vec![policy];
+                match policy.validate() {
+                    Ok(_) => {
+                        return vec![policy];
+                    }
+                    Err(_) => return vec![],
+                }
             }
             vec![]
         })

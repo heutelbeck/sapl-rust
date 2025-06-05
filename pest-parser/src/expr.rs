@@ -25,7 +25,6 @@ use crate::Val;
 use crate::PRATT_PARSER;
 
 use futures::Stream;
-use serde_json::Value;
 use std::collections::VecDeque;
 use std::fmt::Display;
 use std::pin::Pin;
@@ -264,15 +263,83 @@ impl Ast {
     }
 
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Result<bool, String> {
-        use self::Ast::*;
-
-        match self {
-            Boolean(b) => Ok(*b),
-            Expr { .. } => self
-                .evaluate_expr(auth_subscription)?
-                .evaluate(auth_subscription),
+        match self.evaluate_inner(auth_subscription) {
+            Ok(Val::Boolean(b)) => Ok(b),
+            Ok(Val::CompFloat(b, _)) => Ok(b),
+            Ok(Val::CompInteger(b, _)) => Ok(b),
             other => Err(format!(
                 "Ast::evaluate expected Boolean or Expr, found {:#?}",
+                other
+            )),
+        }
+    }
+
+    pub fn evaluate_inner(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Result<Val, String> {
+        use self::Ast::*;
+        use crate::evaluate::*;
+
+        match self {
+            Boolean(b) => Ok(Val::Boolean(*b)),
+            Integer(i) => Ok(Val::Integer(*i)),
+            Float(i) => Ok(Val::Float(*i)),
+            String(s) => Ok(Val::String(s.clone())),
+            BasicIdentifier(bi) => basic_identifier(bi, auth_subscription),
+            Expr { lhs, op, rhs } => match op {
+                Op::Addition => add(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::Comparison => panic!(),
+                Op::Division => div(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::EagerAnd => eager_and(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::EagerOr => eager_or(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::Equal => eq(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::ExclusiveOr => xor(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::Filter => panic!(),
+                Op::Greater => ge(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::GreaterEqual => ge_eq(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::LazyAnd => panic!(),
+                Op::LazyOr => panic!(),
+                Op::Less => le(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::LessEqual => le_eq(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::NotEqual => non_eq(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                _ => unimplemented!(),
+            },
+            other => Err(format!(
+                "Ast::evaluate_inner expected Boolean or Expr, found {:#?}",
                 other
             )),
         }
@@ -391,7 +458,7 @@ impl Ast {
             match (&**lhs, op, &**rhs) {
                 (Boolean(_), _, Boolean(_)) => self.eval_boolean_expr(),
                 (Integer(_), _, Integer(_)) => self.evaluate_int_expr(),
-                (BasicIdentifier(_), _, _) => self.eval_basic_identifier(auth_subscription),
+                // (BasicIdentifier(_), _, _) => self.eval_basic_identifier(auth_subscription),
                 (Expr { .. }, _, Integer(_)) => self.evaluate_expr_comp_integer(auth_subscription),
                 (Expr { .. }, _, _) => Expr {
                     lhs: lhs.evaluate_expr(auth_subscription)?.into(),
@@ -529,67 +596,6 @@ impl Ast {
         }
     }
 
-    fn eval_basic_identifier(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Result<Ast, String> {
-        use self::Ast::*;
-        use Op::*;
-
-        if let Expr { lhs, op, rhs } = self {
-            if let BasicIdentifier(bi) = &**lhs {
-                let sapl_id = bi.first();
-
-                let mut keys: VecDeque<_> = bi
-                    .iter()
-                    .skip(1)
-                    .filter_map(|e| match e {
-                        KeyStep(s) => Some(s.to_owned()),
-                        _ => None,
-                    })
-                    .collect();
-
-                let lhs_result: Value = match sapl_id {
-                    Some(BasicIdentifierExpression(bie)) => {
-                        bie.evaluate(&mut keys, auth_subscription)
-                    }
-                    _ => Value::Null,
-                };
-
-                return match (lhs_result, op, &**rhs) {
-                    (Value::String(l), Equal, String(s)) => Ok(Boolean(l.eq(s))),
-                    (Value::Number(l), _, Integer(r)) => {
-                        let num = l.as_i64();
-                        match num {
-                            Some(n) => match op {
-                                Equal => Ok(Boolean(n == *r as i64)),
-                                NotEqual => Ok(Boolean(n != *r as i64)),
-                                Less => Ok(Boolean(n < *r as i64)),
-                                Greater => Ok(Boolean(n > *r as i64)),
-                                LessEqual => Ok(Boolean(n <= *r as i64)),
-                                GreaterEqual => Ok(Boolean(n >= *r as i64)),
-                                _ => Ok(Boolean(false)),
-                            },
-                            None => Ok(Boolean(false)),
-                        }
-                    }
-                    (Value::Bool(l), Equal, Boolean(r)) => Ok(Boolean(l == *r)),
-                    (Value::Bool(l), NotEqual, Boolean(r)) => Ok(Boolean(l != *r)),
-                    (Value::Null, _, _) => Ok(Boolean(false)),
-                    (Value::Object(_), _, _) => Ok(Boolean(false)),
-                    others => Err(format!(
-                        "Ast::eval_basic_identifier {:#?} is not implemented",
-                        others
-                    )),
-                };
-            }
-        }
-        Err(format!(
-            "Ast::eval_basic_identifier expected, found {:#?}",
-            self
-        ))
-    }
-
     pub fn iter(&self) -> ExprIter {
         let mut stack = VecDeque::new();
         stack.push_back(Arc::new(self.clone()));
@@ -712,25 +718,25 @@ impl Iterator for ExprIter {
 
 #[derive(PartialEq, Debug)]
 pub enum Op {
-    LazyOr,
-    LazyAnd,
-    EagerOr,
-    ExclusiveOr,
+    Addition,
+    Comparison,
+    Division,
     EagerAnd,
+    EagerOr,
     Equal,
+    ExclusiveOr,
+    Filter,
+    Greater,
+    GreaterEqual,
+    LazyAnd,
+    LazyOr,
+    Less,
+    LessEqual,
+    Modulo,
+    Multiplication,
     NotEqual,
     Regex,
-    Comparison,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    Addition,
     Subtract,
-    Multiplication,
-    Division,
-    Modulo,
-    Filter,
 }
 
 impl Clone for Op {
@@ -1360,7 +1366,7 @@ mod tests {
         let mut stream = Ast::parse(pair.into_inner())
             .eval(&AuthorizationSubscription::new_example_subscription1());
 
-        assert_eq!(stream.next().await, Some(Ok(Val::Boolean(true))));
+        assert_eq!(stream.next().await, Some(Ok(Val::CompInteger(true, 42))));
     }
 
     #[tokio::test]

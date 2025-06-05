@@ -10,10 +10,11 @@
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
     WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-    License for the specific language governing permissions and limitations
+    License for the specific language governing permissions eager_and limitations
     under the License.
 */
 
+use crate::evaluate::eager_and;
 use crate::Val;
 use futures::{stream::Fuse, Stream, StreamExt};
 use pin_project_lite::pin_project;
@@ -67,43 +68,30 @@ where
                 *self.as_mut().project().lhs = val1.clone();
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_and(val1, val2)))
+                Ready(Some(eager_and(val1, val2)))
             }
             (Ready(Some(val1)), Pending) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_and(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(eager_and(val1, self.as_mut().project().rhs.clone())))
             }
             (Pending, Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_and(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(eager_and(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(Some(val1)), Ready(None)) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_and(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(eager_and(val1, self.as_mut().project().rhs.clone())))
             }
             (Ready(None), Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_and(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(eager_and(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(None), Ready(None)) => Ready(None),
             (_, _) => Pending,
         }
-    }
-}
-
-fn equal_and(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
-    use Val::*;
-    match (lhs, rhs) {
-        (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(l && r)),
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
-        (lhs, rhs) => Err(format!(
-            "stream sapl EvalEq for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
-        )),
     }
 }

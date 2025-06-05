@@ -14,6 +14,7 @@
     under the License.
 */
 
+use crate::evaluate::eq;
 use crate::Val;
 use futures::{stream::Fuse, Stream, StreamExt};
 use pin_project_lite::pin_project;
@@ -67,45 +68,30 @@ where
                 *self.as_mut().project().lhs = val1.clone();
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_eval(val1, val2)))
+                Ready(Some(eq(val1, val2)))
             }
             (Ready(Some(val1)), Pending) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_eval(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(eq(val1, self.as_mut().project().rhs.clone())))
             }
             (Pending, Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_eval(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(eq(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(Some(val1)), Ready(None)) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_eval(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(eq(val1, self.as_mut().project().rhs.clone())))
             }
             (Ready(None), Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_eval(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(eq(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(None), Ready(None)) => Ready(None),
             (_, _) => Pending,
         }
-    }
-}
-
-fn equal_eval(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
-    use crate::Val::*;
-    match (lhs, rhs) {
-        (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(l == r)),
-        (Ok(Integer(l)), Ok(Integer(r))) => Ok(Boolean(l == r)),
-        (Ok(Float(l)), Ok(Float(r))) => Ok(Boolean(l == r)),
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
-        (lhs, rhs) => Err(format!(
-            "stream sapl EvalEq for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
-        )),
     }
 }

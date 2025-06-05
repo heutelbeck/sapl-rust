@@ -23,6 +23,8 @@ pub enum Val {
     Float(f32),
     String(String),
     DateTime(DateTime<Local>),
+    CompInteger(bool, i32),
+    CompFloat(bool, f32),
     None,
 }
 
@@ -47,6 +49,8 @@ impl Clone for Val {
             Val::Boolean(b) => Val::Boolean(*b),
             Val::Integer(i) => Val::Integer(*i),
             Val::DateTime(dt) => Val::DateTime(*dt),
+            Val::CompFloat(b, f) => Val::CompFloat(*b, *f),
+            Val::CompInteger(b, i) => Val::CompInteger(*b, *i),
         }
     }
 }

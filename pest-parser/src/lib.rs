@@ -21,6 +21,7 @@ pub mod boolean_stream;
 mod combine_expr;
 mod decision;
 mod delay;
+mod evaluate;
 mod expr;
 pub mod functions;
 mod import;

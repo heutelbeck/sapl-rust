@@ -25,8 +25,8 @@ use tokio_stream::StreamExt;
 
 #[tokio::main]
 async fn main() {
-    //sync_demo_part();
-    tokio::join!(async_demo_part());
+    sync_demo_part();
+    //tokio::join!(async_demo_part());
 }
 
 async fn async_demo_part() {
@@ -221,6 +221,11 @@ fn sync_demo_part() {
         let basic_group =
             parse_sapl_file("policy \"all authenticated users may access patient records\" permit action.java.name == \"getPatient\" & resource.http.requestedURI =~ \"^/patients/[0-9]+$\" where !(\"ROLE_ANONYMOUS\" in subject..authority);");
         println!("{:#?}", basic_group);
+        println!();
+    }
+    {
+        let comp = parse_sapl_file("policy \"demo\" permit 20>10>5");
+        println!("{:#?}", comp);
         println!();
     }
 }

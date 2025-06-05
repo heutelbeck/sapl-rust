@@ -14,11 +14,13 @@
     under the License.
 */
 
-use crate::Val;
+use crate::{evaluate::add, Val};
 use futures::{stream::Fuse, Stream, StreamExt};
 use pin_project_lite::pin_project;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 pin_project! {
     /// Stream returned by the [`eval_add`] method.
@@ -67,44 +69,30 @@ where
                 *self.as_mut().project().lhs = val1.clone();
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_add(val1, val2)))
+                Ready(Some(add(val1, val2)))
             }
             (Ready(Some(val1)), Pending) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_add(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(add(val1, self.as_mut().project().rhs.clone())))
             }
             (Pending, Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_add(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(add(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(Some(val1)), Ready(None)) => {
                 *self.as_mut().project().lhs = val1.clone();
 
-                Ready(Some(equal_add(val1, self.as_mut().project().rhs.clone())))
+                Ready(Some(add(val1, self.as_mut().project().rhs.clone())))
             }
             (Ready(None), Ready(Some(val2))) => {
                 *self.as_mut().project().rhs = val2.clone();
 
-                Ready(Some(equal_add(self.as_mut().project().lhs.clone(), val2)))
+                Ready(Some(add(self.as_mut().project().lhs.clone(), val2)))
             }
             (Ready(None), Ready(None)) => Ready(None),
             (_, _) => Pending,
         }
-    }
-}
-
-fn equal_add(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
-    use crate::Val::*;
-    match (lhs, rhs) {
-        (Ok(Integer(l)), Ok(Integer(r))) => Ok(Integer(l + r)),
-        (Ok(Float(l)), Ok(Float(r))) => Ok(Float(l + r)),
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
-        (lhs, rhs) => Err(format!(
-            "stream sapl EvalEq for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
-        )),
     }
 }
