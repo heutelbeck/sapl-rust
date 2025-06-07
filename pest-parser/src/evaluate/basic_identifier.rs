@@ -54,7 +54,7 @@ pub(crate) fn basic_identifier(
         }
         Value::Bool(b) => Ok(Val::Boolean(b)),
         Value::Array(_) => Ok(Val::Boolean(false)),
-        Value::Null => Ok(Val::Boolean(false)),
+        Value::Null => Ok(Val::String("".to_string())),
         Value::Object(_) => Ok(Val::Boolean(false)),
     }
 }
