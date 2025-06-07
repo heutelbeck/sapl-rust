@@ -47,6 +47,12 @@ pub(crate) use le_eq::le_eq;
 mod non_eq;
 pub(crate) use non_eq::non_eq;
 
+mod modulo;
+pub(crate) use modulo::modulo;
+
+mod mul;
+pub(crate) use mul::mul;
+
 mod sub;
 pub(crate) use sub::sub;
 

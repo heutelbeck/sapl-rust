@@ -332,11 +332,23 @@ impl Ast {
                     lhs.evaluate_inner(auth_subscription),
                     rhs.evaluate_inner(auth_subscription),
                 ),
+                Op::Modulo => modulo(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
+                Op::Multiplication => mul(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
                 Op::NotEqual => non_eq(
                     lhs.evaluate_inner(auth_subscription),
                     rhs.evaluate_inner(auth_subscription),
                 ),
-                _ => unimplemented!(),
+                Op::Regex => panic!(),
+                Op::Subtract => sub(
+                    lhs.evaluate_inner(auth_subscription),
+                    rhs.evaluate_inner(auth_subscription),
+                ),
             },
             other => Err(format!(
                 "Ast::evaluate_inner expected Boolean or Expr, found {:#?}",
