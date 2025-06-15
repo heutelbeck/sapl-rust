@@ -52,7 +52,7 @@ use stream_sapl::StreamSapl;
 use stream_sapl::{once_decision, once_val};
 use tokio_stream::Stream;
 
-type BoxedValStream = Pin<Box<dyn Stream<Item = Result<Val, String>>>>;
+type BoxedValStream = Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>>;
 
 #[derive(Parser)]
 #[grammar = "grammar/sapl.pest"]
@@ -195,7 +195,7 @@ impl SaplDocument {
     pub fn evaluate_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<(dyn Stream<Item = Decision>)>> {
+    ) -> Pin<Box<dyn Stream<Item = Decision> + Send>> {
         use DocumentBody::*;
         match &self.body {
             Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
@@ -316,7 +316,7 @@ pub trait Eval {
     fn eval(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<(dyn Stream<Item = Result<Val, String>>)>>;
+    ) -> Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>>;
 }
 
 #[cfg(test)]

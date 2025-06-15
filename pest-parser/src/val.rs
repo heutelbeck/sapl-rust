@@ -14,7 +14,7 @@
     under the License.
 */
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, PartialEq)]
 pub enum Val {
@@ -22,7 +22,7 @@ pub enum Val {
     Integer(i32),
     Float(f32),
     String(String),
-    DateTime(DateTime<Local>),
+    DateTime(DateTime<Utc>),
     CompInteger(bool, i32),
     CompFloat(bool, f32),
     None,

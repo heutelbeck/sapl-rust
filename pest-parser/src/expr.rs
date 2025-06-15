@@ -615,12 +615,12 @@ impl Ast {
     }
 }
 
-impl<S> StreamSapl for S where S: Stream<Item = Result<Val, String>> {}
+impl<S> StreamSapl for S where S: Stream<Item = Result<Val, String>> + std::marker::Send {}
 impl Eval for Ast {
     fn eval(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<(dyn Stream<Item = Result<Val, String>>)>> {
+    ) -> Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>> {
         match self {
             Ast::Expr { lhs, op, rhs } => match op {
                 Op::EagerAnd => Box::pin(

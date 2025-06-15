@@ -166,7 +166,7 @@ impl Policy {
     pub fn evaluate_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<(dyn Stream<Item = Decision>)>> {
+    ) -> Pin<Box<dyn Stream<Item = Decision> + std::marker::Send>> {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
         // false (not matching) |   don’t care  |   NOT_APPLICABLE

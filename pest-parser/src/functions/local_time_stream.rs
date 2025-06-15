@@ -52,7 +52,7 @@ impl Stream for LocalTimeStream {
             Poll::Ready(_) => {
                 let when = self.delay.when + self.duration;
                 self.delay = Delay { when };
-                Poll::Ready(Some(Ok(Val::DateTime(Local::now()))))
+                Poll::Ready(Some(Ok(Val::DateTime(Local::now().into()))))
             }
             Poll::Pending => Poll::Pending,
         }
