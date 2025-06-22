@@ -649,12 +649,15 @@ impl Eval for Ast {
                 ),
                 _ => unimplemented!(),
             },
+            Ast::BasicIdentifier(bi) => Box::pin(once_val(
+                crate::evaluate::basic_identifier(bi, auth_subscription).unwrap(),
+            )),
             Ast::BasicFunction(_) => Box::pin(LocalTimeStream::default().eval_seconds_of()),
             Ast::Boolean(b) => Box::pin(once_val(Val::Boolean(*b))),
             Ast::Integer(i) => Box::pin(once_val(Val::Integer(*i))),
             Ast::Float(f) => Box::pin(once_val(Val::Float(*f))),
             Ast::String(s) => Box::pin(once_val(Val::String(s.clone()))),
-            _ => unimplemented!(),
+            others => unimplemented!("{}", format!("{:#?} is not implemented yet", others)),
         }
     }
 }
