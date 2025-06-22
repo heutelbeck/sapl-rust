@@ -14,18 +14,15 @@
     under the License.
 */
 
-//use rocket::response::stream::{Event, EventStream, TextStream};
 use embedded_pdp::{AuthorizationSubscription, Pdp, file_reader};
-use pest_parser::Decision;
 use rocket::{
     Orbit, Rocket,
     fairing::{Fairing, Info, Kind},
     response::stream::{Event, EventStream},
     serde::json::{Json, Value, json},
-    tokio::{self, time},
+    tokio,
 };
 use std::path::Path;
-use std::time::Duration;
 
 #[macro_use]
 extern crate rocket;
@@ -57,11 +54,11 @@ impl Fairing for FileWatcher {
 
 #[post("/api/pdp/decide", format = "json", data = "<auth_sub>")]
 fn decide(auth_sub: Json<AuthorizationSubscription>, pdp: &rocket::State<Pdp>) -> EventStream![] {
+    let stream = pdp.decide(auth_sub.into_inner());
+
     EventStream! {
-        let mut interval = time::interval(Duration::from_secs(1));
-        loop {
-            yield Event::data(format!("\"decision\" : {:?}", Decision::Permit));//Decision::Permit.to_string());
-            interval.tick().await;
+        for await decision in stream {
+            yield Event::json(&decision);
         }
     }
 }
