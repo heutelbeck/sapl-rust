@@ -16,6 +16,9 @@
 
 use serde::Deserialize;
 
+mod deny_unless_permit_stream;
+pub(crate) use deny_unless_permit_stream::DenyUnlessPermit;
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Deserialize, Default)]
 pub enum PolicyDocumentCombiningAlgorithm {

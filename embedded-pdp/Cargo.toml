@@ -7,5 +7,6 @@ edition = "2024"
 futures = "0.3.31"
 notify = "8.0.0"
 pest-parser = { version = "0.1.0", path = "../pest-parser" }
+pin-project-lite = "0.2.15"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.115"

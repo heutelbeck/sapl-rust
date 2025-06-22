@@ -18,18 +18,22 @@
 mod combining_algorithm;
 mod file_reader;
 mod pdp_config;
-mod stream_decision;
 
 //Re-export types from pest-parser that users need
 pub use crate::file_reader::*;
 pub use pest_parser::authorization_subscription::AuthorizationSubscription;
 
-use crate::{combining_algorithm::PolicyDocumentCombiningAlgorithm, pdp_config::PdpConfig};
+use crate::{
+    combining_algorithm::{DenyUnlessPermit, PolicyDocumentCombiningAlgorithm},
+    pdp_config::PdpConfig,
+};
+use futures::Stream;
 use pest_parser::{Decision, SaplDocument, parse_sapl_file};
 use serde_json::{Value, json};
 use std::{
     fs::{self, read_dir},
     path::{Path, PathBuf},
+    pin::Pin,
     sync::{Arc, RwLock},
 };
 
@@ -71,20 +75,27 @@ impl Pdp {
         }
     }
 
-    // pub fn decide(&self, auth_sub: AuthorizationSubscription) -> Value {
-    //     use PolicyDocumentCombiningAlgorithm::*;
-    //
-    //     // Acquire read locks to access the inner data
-    //     // TODO check if files gets updated how to handle this?
-    //     let config_guard = self.config.read().expect("Failed to read config lock");
-    //     let policies_guard = self.policies.read().expect("Failed to read policies lock");
-    //
-    //     match &config_guard.algorithm {
-    //         DENY_UNLESS_PERMIT => policies_guard.iter().deny_unless_permit(&auth_sub),
-    //         PERMIT_UNLESS_DENY => policies_guard.iter().permit_unless_deny(&auth_sub),
-    //         others => unimplemented!("The pdp alogrithm {:#?} is not yet implemented.", others),
-    //     }
-    // }
+    pub fn decide(
+        &self,
+        auth_sub: AuthorizationSubscription,
+    ) -> Pin<Box<(dyn Stream<Item = Value> + Send)>> {
+        use PolicyDocumentCombiningAlgorithm::*;
+
+        // Acquire read locks to access the inner data
+        // TODO check if files gets updated how to handle this?
+        let config_guard = self.config.read().expect("Failed to read config lock");
+        let policies_guard = self.policies.read().expect("Failed to read policies lock");
+
+        let policy_streams = policies_guard
+            .iter()
+            .map(|p| p.evaluate_as_stream(&auth_sub))
+            .collect();
+
+        match &config_guard.algorithm {
+            DENY_UNLESS_PERMIT => Box::pin(DenyUnlessPermit::new(policy_streams)),
+            _ => unimplemented!(),
+        }
+    }
 }
 
 fn recurse(path: impl AsRef<Path>) -> Vec<PathBuf> {
