@@ -19,8 +19,8 @@ use std::sync::Arc;
 use tokio_stream::Stream;
 
 use crate::advice::Advice;
+use crate::ast::Ast;
 use crate::authorization_subscription::AuthorizationSubscription;
-use crate::expr::Ast;
 use crate::stream_sapl::StreamSapl;
 use crate::transformation::Transformation;
 use crate::BoxedValStream;

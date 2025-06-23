@@ -15,6 +15,7 @@
 */
 
 mod advice;
+mod ast;
 pub mod authorization_subscription;
 mod basic_identifier_expression;
 pub mod boolean_stream;
@@ -22,7 +23,6 @@ mod combine_expr;
 mod decision;
 mod delay;
 mod evaluate;
-mod expr;
 pub mod functions;
 mod import;
 pub mod policy;
@@ -32,8 +32,8 @@ mod transformation;
 mod val;
 
 pub use crate::advice::Advice;
+pub use crate::ast::{Ast, Op};
 pub use crate::decision::Decision;
-pub use crate::expr::{Ast, Op};
 pub use crate::import::Import;
 pub use crate::policy::Policy;
 pub use crate::schema::Schema;
