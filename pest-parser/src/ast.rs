@@ -411,200 +411,72 @@ impl Ast {
     }
 
     pub fn simplify(&mut self) {
-        use self::Ast::*;
-        use Op::*;
-
-        if let Expr { lhs, op, rhs } = self {
-            match (&**lhs, op, &**rhs) {
-                (Boolean(l), EagerAnd, Boolean(r)) => *self = Boolean(l & r),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    EagerAnd,
-                    Boolean(_),
-                ) => {
-                    let mut result = Expr {
-                        lhs: lhs
-                            .evaluate_expr(&AuthorizationSubscription::new_example_subscription1())
-                            .unwrap()
-                            .into(),
-                        op: EagerAnd,
-                        rhs: rhs.clone(),
-                    };
-                    result.simplify();
-                    *self = result;
-                }
-                (Integer(l), Addition, Integer(r)) => *self = Integer(l + r),
-                (
-                    Expr {
-                        lhs: _,
-                        op: _,
-                        rhs: _,
-                    },
-                    Addition,
-                    Integer(_),
-                ) => {
-                    let mut result = Expr {
-                        lhs: lhs
-                            .evaluate_expr(&AuthorizationSubscription::new_example_subscription1())
-                            .unwrap()
-                            .into(),
-                        op: Addition,
-                        rhs: rhs.clone(),
-                    };
-                    result.simplify();
-                    *self = result;
-                }
-                others => unimplemented!("Ast::simplify needs to implement {:#?}", others),
-            }
-        }
+        self.simplify_expr();
     }
 
-    fn evaluate_expr(&self, auth_subscription: &AuthorizationSubscription) -> Result<Ast, String> {
+    pub fn simplify_expr(&mut self) -> &mut Self {
         use self::Ast::*;
+        use crate::simplify::*;
 
-        if let Expr { lhs, op, rhs } = self {
-            match (&**lhs, op, &**rhs) {
-                (Boolean(_), _, Boolean(_)) => self.eval_boolean_expr(),
-                (Integer(_), _, Integer(_)) => self.evaluate_int_expr(),
-                // (BasicIdentifier(_), _, _) => self.eval_basic_identifier(auth_subscription),
-                (Expr { .. }, _, Integer(_)) => self.evaluate_expr_comp_integer(auth_subscription),
-                (Expr { .. }, _, _) => Expr {
-                    lhs: lhs.evaluate_expr(auth_subscription)?.into(),
-                    op: op.clone(),
-                    rhs: rhs.clone(),
-                }
-                .evaluate_expr(auth_subscription),
-                (_, _, Expr { .. }) => Expr {
-                    lhs: lhs.clone(),
-                    op: op.clone(),
-                    rhs: rhs.evaluate_expr(auth_subscription)?.into(),
-                }
-                .evaluate_expr(auth_subscription),
-                others => Err(format!(
-                    "Ast::evaluate_expr {:#?} is not implemented",
-                    others
-                )),
-            }
-        } else {
-            Err(format!("Ast::evaluate_expr {:#?} is not implemented", self))
-        }
-    }
+        match self {
+            Expr { lhs, op, rhs } => match op {
+                Op::Addition => {
+                    let mut lhs = Ast::simplify_inner_expr(lhs);
+                    let mut rhs = Ast::simplify_inner_expr(rhs);
 
-    fn eval_boolean_expr(&self) -> Result<Ast, String> {
-        use self::Ast::*;
-        use Op::*;
-
-        if let Expr { lhs, op, rhs } = self {
-            match (&**lhs, op, &**rhs) {
-                (Boolean(lhs), LazyOr, Boolean(rhs)) => Ok(Boolean(*lhs || *rhs)),
-                (Boolean(lhs), LazyAnd, Boolean(rhs)) => Ok(Boolean(*lhs && *rhs)),
-                (Boolean(lhs), EagerOr, Boolean(rhs)) => Ok(Boolean(lhs | rhs)),
-                (Boolean(lhs), EagerAnd, Boolean(rhs)) => Ok(Boolean(lhs & rhs)),
-                (Boolean(lhs), Equal, Boolean(rhs)) => Ok(Boolean(lhs == rhs)),
-                (Boolean(lhs), NotEqual, Boolean(rhs)) => Ok(Boolean(lhs != rhs)),
-                (Boolean(lhs), Less, Boolean(rhs)) => Ok(Boolean(lhs > rhs)),
-                (Boolean(lhs), Greater, Boolean(rhs)) => Ok(Boolean(lhs < rhs)),
-                (Boolean(lhs), LessEqual, Boolean(rhs)) => Ok(Boolean(lhs <= rhs)),
-                (Boolean(lhs), GreaterEqual, Boolean(rhs)) => Ok(Boolean(lhs >= rhs)),
-                others => Err(format!(
-                    "Ast::eval_boolean_expr {:#?} is not implemented",
-                    others
-                )),
-            }
-        } else {
-            Err(format!(
-                "Ast::eval_boolean_expr {:#?} is not implemented",
-                self
-            ))
-        }
-    }
-
-    fn evaluate_expr_comp_integer(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Result<Ast, String> {
-        use self::Ast::*;
-        use Op::*;
-
-        if let Expr {
-            lhs,
-            op: outer_op,
-            rhs,
-        } = self
-        {
-            match (&**lhs, outer_op, &**rhs) {
-                (
-                    Expr { op, rhs: r, .. },
-                    Greater | Less | Equal | LessEqual | GreaterEqual,
-                    Integer(_),
-                ) => match op {
-                    Greater | Less | Equal | LessEqual | GreaterEqual => Expr {
-                        lhs: lhs.evaluate_expr(auth_subscription)?.into(),
-                        op: EagerAnd,
-                        rhs: Expr {
-                            lhs: r.clone(),
-                            op: op.clone(),
-                            rhs: rhs.clone(),
-                        }
-                        .evaluate_expr(auth_subscription)?
-                        .into(),
+                    if let Some(result) = add(&mut lhs, &mut rhs) {
+                        *self = result;
                     }
-                    .evaluate_expr(auth_subscription),
-                    _ => Expr {
-                        lhs: lhs.evaluate_expr(auth_subscription)?.into(),
-                        op: outer_op.clone(),
-                        rhs: rhs.clone(),
-                    }
-                    .evaluate_expr(auth_subscription),
-                },
-                _ => Expr {
-                    lhs: lhs.evaluate_expr(auth_subscription)?.into(),
-                    op: outer_op.clone(),
-                    rhs: rhs.clone(),
+                    self
                 }
-                .evaluate_expr(auth_subscription),
-            }
-        } else {
-            Err(format!(
-                "Ast::evaluate_expr_comp_integer {:#?} is not implemented",
-                self
-            ))
+                Op::Comparison => panic!(),
+                Op::Division => panic!(),
+                Op::EagerAnd => {
+                    let mut lhs = Ast::simplify_inner_expr(lhs);
+                    let mut rhs = Ast::simplify_inner_expr(rhs);
+
+                    if let Some(result) = eager_and(&mut lhs, &mut rhs) {
+                        *self = result;
+                    }
+                    self
+                }
+                Op::EagerOr => {
+                    let mut lhs = Ast::simplify_inner_expr(lhs);
+                    let mut rhs = Ast::simplify_inner_expr(rhs);
+
+                    if let Some(result) = eager_or(&mut lhs, &mut rhs) {
+                        *self = result;
+                    }
+                    self
+                }
+                Op::Equal => panic!(),
+                Op::ExclusiveOr => panic!(),
+                Op::Filter => panic!(),
+                Op::Greater => panic!(),
+                Op::GreaterEqual => panic!(),
+                Op::LazyAnd => panic!(),
+                Op::LazyOr => panic!(),
+                Op::Less => panic!(),
+                Op::LessEqual => panic!(),
+                Op::Modulo => panic!(),
+                Op::Multiplication => panic!(),
+                Op::NotEqual => panic!(),
+                Op::Regex => panic!(),
+                Op::Subtract => panic!(),
+            },
+            _ => self,
         }
     }
 
-    fn evaluate_int_expr(&self) -> Result<Ast, String> {
+    fn simplify_inner_expr(elem: &mut Arc<Ast>) -> Arc<Ast> {
         use self::Ast::*;
-        use Op::*;
 
-        if let Expr { lhs, op, rhs } = self {
-            match (&**lhs, op, &**rhs) {
-                (Integer(lhs), Equal, Integer(rhs)) => Ok(Boolean(lhs == rhs)),
-                (Integer(lhs), NotEqual, Integer(rhs)) => Ok(Boolean(lhs != rhs)),
-                (Integer(lhs), Less, Integer(rhs)) => Ok(Boolean(lhs < rhs)),
-                (Integer(lhs), Greater, Integer(rhs)) => Ok(Boolean(lhs > rhs)),
-                (Integer(lhs), LessEqual, Integer(rhs)) => Ok(Boolean(lhs <= rhs)),
-                (Integer(lhs), GreaterEqual, Integer(rhs)) => Ok(Boolean(lhs >= rhs)),
-                (Integer(lhs), Addition, Integer(rhs)) => Ok(Integer(lhs.saturating_add(*rhs))),
-                (Integer(lhs), Subtract, Integer(rhs)) => Ok(Integer(lhs.saturating_sub(*rhs))),
-                (Integer(lhs), Multiplication, Integer(rhs)) => {
-                    Ok(Integer(lhs.saturating_mul(*rhs)))
-                }
-                (Integer(lhs), Division, Integer(rhs)) => Ok(Integer(lhs.saturating_div(*rhs))),
-                (Integer(lhs), Modulo, Integer(rhs)) => Ok(Integer(lhs % rhs)),
-                others => Err(format!(
-                    "Ast::evaluate_int_expr {:#?} is not implemented",
-                    others
-                )),
+        match elem.as_ref() {
+            Expr { .. } => {
+                let simplified = Arc::make_mut(&mut elem.clone()).simplify_expr().clone();
+                Arc::new(simplified)
             }
-        } else {
-            Err(format!(
-                "Ast::evaluate_int_expr {:#?} is not implemented",
-                self
-            ))
+            _ => elem.clone(),
         }
     }
 
@@ -1134,7 +1006,6 @@ mod tests {
             .unwrap();
         let expr = Ast::parse(pair.into_inner())
             .evaluate(&AuthorizationSubscription::new_example_subscription1());
-        println!("Das Ergebnis lautet: {:#?}", expr);
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50")
@@ -1179,7 +1050,6 @@ mod tests {
         let expr = Ast::parse(pair.into_inner())
             .evaluate(&AuthorizationSubscription::new_example_subscription2());
         assert!(expr.is_ok());
-        println!("action2 {:#?}", expr);
         assert!(expr.unwrap());
     }
 
@@ -1353,7 +1223,6 @@ mod tests {
             .next()
             .unwrap();
         let mut expr = Ast::parse(pair.into_inner());
-        println!("{:#?}", expr);
         expr.simplify();
         assert_eq!(Ast::Integer(42), expr);
     }

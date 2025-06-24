@@ -27,6 +27,7 @@ pub mod functions;
 mod import;
 pub mod policy;
 mod schema;
+mod simplify;
 pub mod stream_sapl;
 mod transformation;
 mod val;
