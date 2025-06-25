@@ -15,8 +15,8 @@
 */
 
 use futures::Stream;
-use pest_parser::Decision;
 use pin_project_lite::pin_project;
+use sapl_core::Decision;
 use serde_json::Value;
 use std::{
     pin::Pin,

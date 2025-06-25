@@ -14,7 +14,7 @@
     under the License.
 */
 
-use pest_parser::{
+use sapl_core::{
     authorization_subscription::AuthorizationSubscription,
     functions::LocalTimeStream,
     parse_sapl_file,

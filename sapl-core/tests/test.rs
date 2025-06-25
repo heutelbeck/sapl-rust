@@ -14,8 +14,8 @@
     under the License.
 */
 
-extern crate pest_parser;
-use pest_parser::parse_sapl_file;
+extern crate sapl_core;
+use sapl_core::parse_sapl_file;
 
 use rstest::rstest;
 use std::fs::read_to_string;

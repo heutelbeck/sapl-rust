@@ -13,7 +13,7 @@
 #    under the License.
 
 [package]
-name = "pest-parser"
+name = "sapl-core"
 version = "0.1.0"
 edition = "2021"
 

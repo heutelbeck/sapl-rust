@@ -19,6 +19,5 @@ edition = "2024"
 
 [dependencies]
 embedded-pdp = { version = "0.1.0", path = "../embedded-pdp" }
-pest-parser = { version = "0.1.0", path = "../pest-parser" }
 rocket = { version = "0.5.1", features = ["json"] }
 serde = "1.0.219"

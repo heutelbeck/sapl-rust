@@ -21,14 +21,14 @@ mod pdp_config;
 
 //Re-export types from pest-parser that users need
 pub use crate::file_reader::*;
-pub use pest_parser::authorization_subscription::AuthorizationSubscription;
+pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
 use crate::{
     combining_algorithm::{DenyUnlessPermit, PolicyDocumentCombiningAlgorithm},
     pdp_config::PdpConfig,
 };
 use futures::Stream;
-use pest_parser::{Decision, SaplDocument, parse_sapl_file};
+use sapl_core::{Decision, SaplDocument, parse_sapl_file};
 use serde_json::{Value, json};
 use std::{
     fs::{self, read_dir},

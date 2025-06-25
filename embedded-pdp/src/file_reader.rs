@@ -16,7 +16,7 @@
 
 use crate::pdp_config::PdpConfig;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use pest_parser::{SaplDocument, parse_sapl_file};
+use sapl_core::{SaplDocument, parse_sapl_file};
 use std::{
     fs::{self, read_dir},
     path::{Path, PathBuf},
