@@ -25,7 +25,7 @@ mod delay;
 mod evaluate;
 pub mod functions;
 mod import;
-pub mod policy;
+mod sapl_document;
 mod schema;
 mod simplify;
 pub mod stream_sapl;
@@ -36,19 +36,19 @@ pub use crate::advice::Advice;
 pub use crate::ast::{Ast, Op};
 pub use crate::decision::Decision;
 pub use crate::import::Import;
-pub use crate::policy::Policy;
+pub use crate::sapl_document::DocumentBody;
+pub use crate::sapl_document::Policy;
+pub use crate::sapl_document::PolicySet;
+pub use crate::sapl_document::SaplDocument;
 pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
 pub use crate::val::Val;
 
-use async_stream::stream;
 use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;
 use pest::{pratt_parser::PrattParser, Parser};
 use pest_derive::Parser;
-use std::future;
 use std::pin::Pin;
-use std::sync::Arc;
 use stream_sapl::StreamSapl;
 use stream_sapl::{once_decision, once_val};
 use tokio_stream::Stream;
@@ -127,139 +127,6 @@ impl CombiningAlgorithm {
             panic!("Input {} could not be parsed as combining algorithm", s)
         }
     }
-}
-
-impl PolicySet {
-    fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
-        let mut policy_set = PolicySet::default();
-
-        for pair in pairs {
-            match pair.as_rule() {
-                Rule::policy_set_name => {
-                    let mut name = pair.as_str().to_string();
-                    name.retain(|c| c != '\"');
-                    policy_set.name = name;
-                }
-                Rule::combining_algorithm => {
-                    policy_set.combining_algorithm = CombiningAlgorithm::new(pair.as_str())
-                }
-                Rule::target_expression => {
-                    policy_set.target_exp = Some(Arc::new(Ast::parse(pair.clone().into_inner())))
-                }
-                Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner())),
-                rule => unreachable!(
-                    "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {:?}",
-                    rule
-                ),
-            }
-        }
-
-        policy_set
-    }
-
-    pub fn validate(&self) -> Result<(), String> {
-        Ok(())
-    }
-
-    pub fn evaluate(&self, _auth_subscription: &AuthorizationSubscription) -> Decision {
-        Decision::NotApplicable
-    }
-
-    pub async fn evaluate_as_stream(
-        &self,
-        _auth_subscription: &AuthorizationSubscription,
-        //) -> Box<dyn Stream<Item = Decision> + '_> {
-    ) -> impl Stream<Item = Decision> + '_ {
-        stream! {
-            yield Decision::NotApplicable;
-            future::pending::<()>().await;
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct SaplDocument {
-    imports: Option<Vec<Import>>,
-    schemas: Option<Vec<Schema>>,
-    pub body: DocumentBody,
-}
-
-impl SaplDocument {
-    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
-        use DocumentBody::*;
-        match &self.body {
-            Policy(p) => p.evaluate(auth_subscription),
-            PolicySet(ps) => ps.evaluate(auth_subscription),
-        }
-    }
-
-    pub fn evaluate_as_stream(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<dyn Stream<Item = Decision> + Send>> {
-        use DocumentBody::*;
-        match &self.body {
-            Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
-            PolicySet(_) => panic!("not implemented"),
-        }
-    }
-
-    pub fn validate(&self) -> Result<(), String> {
-        let mut result_schema_validation: Result<(), String> = Ok(());
-        if let Some(schemas) = &self.schemas {
-            let schema_results: Vec<_> = schemas
-                .iter()
-                .filter_map(|s| s.validate(self.body.name()))
-                .collect();
-            if !schema_results.is_empty() {
-                result_schema_validation = Err(schema_results.concat());
-            }
-        }
-
-        match (result_schema_validation, &self.body.validate()) {
-            (Ok(_), Ok(_)) => Ok(()),
-            (Ok(_), Err(b)) => Err(b.to_string()),
-            (Err(s), Ok(_)) => Err(s),
-            (Err(s), Err(b)) => Err(s + b),
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match &self.body {
-            DocumentBody::Policy(p) => &p.name,
-            DocumentBody::PolicySet(ps) => &ps.name,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum DocumentBody {
-    Policy(Policy),
-    PolicySet(PolicySet),
-}
-
-impl DocumentBody {
-    fn validate(&self) -> Result<(), String> {
-        match &self {
-            DocumentBody::Policy(p) => p.validate(),
-            DocumentBody::PolicySet(ps) => ps.validate(),
-        }
-    }
-
-    fn name(&self) -> &str {
-        match &self {
-            DocumentBody::Policy(p) => &p.name,
-            DocumentBody::PolicySet(ps) => &ps.name,
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct PolicySet {
-    pub name: String,
-    combining_algorithm: CombiningAlgorithm,
-    target_exp: Option<Arc<Ast>>,
-    policies: Vec<Policy>,
 }
 
 pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
