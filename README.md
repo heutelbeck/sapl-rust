@@ -1,20 +1,41 @@
 # SAPL meets Rust
 
-## Async Rust
-Rust hat keine async Runtime bei Default. Es muus/kann die zum Projekt passende Runtime gewählt werden. Es gibt z.B. die folgenden Runtimes
-* [Tokio](https://tokio.rs/)
-* [Smol](https://github.com/smol-rs/smol)
-* [async-std](https://async.rs/) [streams sind hier noch auf der TODO Liste](https://book.async.rs/concepts/streams)
-* [Embassy](https://embassy.dev/) (embedded async runtime)
+## Voraussetzungen
 
-### Tokio
-Tokio ist bis jetzt die umfangreichste async Runtime mit dazugehöriger Dokumentation. Hier gibt es das [Stream Konzept](https://tokio.rs/tokio/tutorial/streams). Aktuell ist dies noch in einem extra Crate [tokio-stream](https://crates.io/crates/tokio-stream).
-Laut Doku soll das Crate in Tokio integriert werden, sobald das Stream Trait in der Rust Standard Bibliothek stabil ist.
+Eine Rust Installation wird benötigt. Am einfachsten ist die Installation via [rustup](https://rustup.rs/). Nach der Installation kann der ganze workspace mit cargo mit dem folgenden Befehl übersetzt werden.
 
-> A stream is an asynchronous series of values. It is the asynchronous equivalent to Rust's std::iter::Iterator and is represented by the Stream trait. Streams can be iterated in async functions. They can also be transformed using adapters. Tokio provides a number of common adapters on the StreamExt trait.
+```
+cargo build
+```
 
-### Eyeball
-Das Crate [eyeball](https://crates.io/crates/eyeball) beschreibt sich selbst wie folgt
-> This crate implements a basic form of the Observer pattern for Rust.
+Alle Tests im workspace können mit dem folgenden Befehl übersetzt werden.
 
-Ein interessanter Blog Post zu eyeball gibt es [hier](https://mnt.io/series/reactive-programming-in-rust/observability/).
+```
+cargo test
+```
+
+## Übersicht
+
+![Structure](assets/structure.png)
+
+### sapl-core
+Diese Bibliothek enthält eine [pest](https://pest.rs)))) Grammatik für das parsen von Sapl Policies. Auch die Logik für die Auswertung einer Subscription ist hier realisiert.
+
+### embedded-pdp
+Diese Bibliothek realisiert mit der Hilfe von sapl-core einen [PDP](https://sapl.io/docs/3.0.0-SNAPSHOT/2_3_PolicyDecisionPoint/). Die Implementierung der verschiedenen Policiy Decision Kombinationsalgorithmen.
+- [ ] DENY_UNLESS_PERMIT
+- [ ] PERMIT_UNLESS_DENY
+- [ ] ONLY_ONE_APPLICABLE
+- [ ] DENY_OVERRIDES
+- [ ] PERMIT_OVERRIDES
+
+### remote-pdp
+Ein mit dem Web Framework [Rocket](https://rocket.rs/) realisierter Server. Es sind die beiden folgenden RESTful Api Endpunkten realisiert
+* /api/pdp/decide => liefert einen Sapl Decision Stream im json Format
+* /api/pdp/decide_once => liefert eine Sapl Decision im json Format
+
+### research
+Hier sind Demos und Test Projekte enthalten.
+* antlr-parser => Test Projekt eines antlr parser für rust
+* file-reader => Demo Projekt zum Überwachen eines Verzeichnisses und lesen von Dateien
+* tokio-stream-demo => Demo Projekt zum streams
