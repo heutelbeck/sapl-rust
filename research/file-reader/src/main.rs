@@ -1,5 +1,5 @@
 /*
-    Copyright 2024 Stefan Weng
+    Copyright 2025 Stefan Weng
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not
     use this file except in compliance with the License. You may obtain a copy
@@ -20,7 +20,7 @@ use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use pdp_config::PdpConfig;
 use std::{
     path::Path,
-    sync::{mpsc::channel, Arc, RwLock},
+    sync::{Arc, RwLock, mpsc::channel},
     thread,
     time::{Duration, Instant},
 };

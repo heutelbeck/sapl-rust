@@ -1,4 +1,4 @@
-#    Copyright 2024 Stefan Weng
+#    Copyright 2025 Stefan Weng
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may not
 #    use this file except in compliance with the License. You may obtain a copy
@@ -14,4 +14,4 @@
 
 [workspace]
 
-members = [ "antlr-parser", "embedded-pdp", "file-reader", "sapl-core", "remote-pdp", "tokio-stream-demo"]
+members = [ "research/antlr-parser", "embedded-pdp", "research/file-reader", "sapl-core", "remote-pdp", "research/tokio-stream-demo"]
