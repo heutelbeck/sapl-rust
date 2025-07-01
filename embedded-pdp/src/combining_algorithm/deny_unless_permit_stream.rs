@@ -27,7 +27,7 @@ pin_project! {
     pub struct DenyUnlessPermit {
         #[pin]
         streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>,
-        decisions: Vec<Option<Decision>>,
+        decisions: Vec<Poll<Option<Decision>>>,
         first_decision_done: bool,
     }
 }
@@ -35,7 +35,7 @@ pin_project! {
 impl DenyUnlessPermit {
     pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>) -> Self {
         DenyUnlessPermit {
-            decisions: (0..streams.len()).map(|_| None::<Decision>).collect(),
+            decisions: (0..streams.len()).map(|_| Poll::Pending).collect(),
             streams,
             first_decision_done: false,
         }
@@ -44,24 +44,58 @@ impl DenyUnlessPermit {
     fn is_first_decision_done(&mut self) -> bool {
         if !self.first_decision_done {
             for d in &self.decisions {
-                if d.is_none() {
-                    self.first_decision_done = false;
+                if d.is_pending() {
                     return false;
                 }
             }
+            self.first_decision_done = true;
             true
         } else {
             true
         }
     }
 
-    fn get_decision(&self) -> &str {
-        for d in &self.decisions {
-            if *d == Some(Decision::Permit) {
-                return r#"{"decision": "PERMIT"}"#;
+    fn finished(&self) -> bool {
+        let mut finished = true;
+        for r in &self.decisions {
+            match r {
+                Poll::Ready(None) => {}
+                _ => {
+                    finished = false;
+                    break;
+                }
             }
         }
-        r#"{"decision": "DENY"}"#
+
+        finished
+    }
+
+    fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
+        let mut evaluation_needed = false;
+        for (i, result) in results.into_iter().enumerate() {
+            if result.is_pending() {
+                continue;
+            }
+            if self.decisions[i] != result {
+                self.decisions[i] = result;
+                evaluation_needed = true;
+            }
+        }
+
+        if !evaluation_needed {
+            return if self.finished() {
+                Poll::Ready(None)
+            } else {
+                Poll::Pending
+            };
+        }
+
+        for d in &self.decisions {
+            if *d == Poll::Ready(Some(Decision::Permit)) {
+                return Poll::Ready(Some(Decision::Permit));
+            }
+        }
+        Poll::Ready(Some(Decision::Deny))
     }
 }
 
@@ -75,22 +109,44 @@ impl Stream for DenyUnlessPermit {
 
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
+        let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
+        results.push(Pending);
+        results.push(Pending);
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();
-            match s.poll_next(cx) {
-                Ready(Some(decision)) => {
-                    this.decisions[i] = Some(decision);
-                }
-                Ready(None) => panic!(),
-                Pending => panic!(),
+
+            if this.decisions[i] != Ready(None) {
+                results[i] = s.poll_next(cx);
+            } else {
+                results[i] = Ready(None);
             }
         }
 
         if self.is_first_decision_done() {
-            Ready(Some(serde_json::from_str(self.get_decision()).unwrap()))
+            match self.evaluate(results) {
+                Ready(Some(Decision::Deny)) => Ready(Some(
+                    serde_json::from_str(r#"{"decision": "DENY"}"#).unwrap(),
+                )),
+                Ready(Some(Decision::Permit)) => Ready(Some(
+                    serde_json::from_str(r#"{"decision": "PERMIT"}"#).unwrap(),
+                )),
+                Ready(Some(Decision::NotApplicable)) => Ready(Some(
+                    serde_json::from_str(r#"{"decision": "NOT_APPLICABLE"}"#).unwrap(),
+                )),
+                Ready(Some(Decision::Indeterminate)) => Ready(Some(
+                    serde_json::from_str(r#"{"decision": "INDETERMINATE"}"#).unwrap(),
+                )),
+                Ready(None) => Ready(None),
+                Pending => Pending,
+            }
         } else {
-            Ready(None) //Pending
+            for (i, result) in results.into_iter().enumerate() {
+                if self.as_mut().project().decisions[i] != result {
+                    self.as_mut().project().decisions[i] = result;
+                }
+            }
+            Pending
         }
     }
 }

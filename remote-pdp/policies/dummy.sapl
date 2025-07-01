@@ -3,3 +3,4 @@ permit
     action == "read"
 where
     subject == "WILLI";
+    time.secondOf(<time.now>) < 20;
