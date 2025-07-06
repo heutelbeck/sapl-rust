@@ -24,7 +24,7 @@ pub use crate::file_reader::*;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
 use crate::{
-    combining_algorithm::{DenyUnlessPermit, PolicyDocumentCombiningAlgorithm},
+    combining_algorithm::{DenyUnlessPermit, PermitUnlessDeny, PolicyDocumentCombiningAlgorithm},
     pdp_config::PdpConfig,
 };
 use futures::Stream;
@@ -93,6 +93,7 @@ impl Pdp {
 
         match &config_guard.algorithm {
             DENY_UNLESS_PERMIT => Box::pin(DenyUnlessPermit::new(policy_streams)),
+            PERMIT_UNLESS_DENY => Box::pin(PermitUnlessDeny::new(policy_streams)),
             _ => unimplemented!(),
         }
     }
