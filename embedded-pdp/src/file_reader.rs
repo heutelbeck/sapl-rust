@@ -51,7 +51,7 @@ pub async fn file_reader(
                 &mut last_event_time,
                 e,
             ),
-            Err(e) => eprintln!("{:?}", e),
+            Err(e) => eprintln!("{e:?}"),
         }
     }
 }
@@ -108,7 +108,7 @@ fn update_policies(
 ) {
     let now = Instant::now();
     if now.duration_since(*last_event_time) > debounce_time {
-        println!("Update policies: {:?}", path);
+        println!("Update policies: {path:?}");
         thread::sleep(Duration::from_secs(1));
         let mut policies = shared_policies.write().unwrap();
         *policies = read_all_policies(recurse(path));

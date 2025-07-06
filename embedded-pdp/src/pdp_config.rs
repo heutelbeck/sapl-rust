@@ -42,7 +42,7 @@ impl PdpConfig {
                 match serde_json::from_reader(file) {
                     Ok(config) => config,
                     Err(e) => {
-                        println!("Error while reading pdp configuration: {:#?}", e);
+                        println!("Error while reading pdp configuration: {e:#?}");
                         PdpConfig::default()
                     }
                 }
