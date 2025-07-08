@@ -29,7 +29,7 @@ Diese Bibliothek realisiert mit der Hilfe von sapl-core einen [PDP](https://sapl
 - [ ] DENY_OVERRIDES
 - [ ] PERMIT_OVERRIDES
 
-### remote-pdp
+### pdp-server
 Ein mit dem Web Framework [Rocket](https://rocket.rs/) realisierter Server. Es sind die beiden folgenden RESTful Api Endpunkten realisiert
 * /api/pdp/decide => liefert einen Sapl Decision Stream im json Format
 * /api/pdp/decide_once => liefert eine Sapl Decision im json Format
