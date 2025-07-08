@@ -15,18 +15,18 @@
 */
 
 use sapl_core::{
+    Val,
     authorization_subscription::AuthorizationSubscription,
     functions::LocalTimeStream,
     parse_sapl_file,
-    stream_sapl::{once_val, StreamSapl},
-    Val,
+    stream_sapl::{StreamSapl, once_val},
 };
 use tokio_stream::StreamExt;
 
 #[tokio::main]
 async fn main() {
     sync_demo_part();
-    //tokio::join!(async_demo_part());
+    tokio::join!(async_demo_part());
 }
 
 async fn async_demo_part() {
@@ -56,12 +56,16 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let policy_set_new = parse_sapl_file("set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny");
+        let policy_set_new = parse_sapl_file(
+            "set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" deny",
+        );
         println!("{:#?}", policy_set_new);
         println!();
     }
     {
-        let policy_set_new = parse_sapl_file("import filter.blacken import filter as filter import filter as filter import filter.* import sapl.pip.http.* set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" permit a == b && c == d | e > f");
+        let policy_set_new = parse_sapl_file(
+            "import filter.blacken import filter as filter import filter as filter import filter.* import sapl.pip.http.* set \"classified documents\" first-applicable policy \"Clearance (1/3)\" permit policy \"test policy\" permit a == b && c == d | e > f",
+        );
         println!("{:#?}", policy_set_new);
     }
     {
@@ -83,7 +87,8 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let schema = parse_sapl_file("subject schema { \"firstName\": {             \"type\": \"string\", \"description\": \"The person's first name.\" }} policy \"test pair\" deny",
+        let schema = parse_sapl_file(
+            "subject schema { \"firstName\": {             \"type\": \"string\", \"description\": \"The person's first name.\" }} policy \"test pair\" deny",
         );
         println!("{:#?}", schema);
         println!();
@@ -130,8 +135,9 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let transformation =
-            parse_sapl_file("policy \"test\" permit transform { \"id\": resource.id, \"name\": resource.name,\"phoneNumber\": resource.phoneNumber}");
+        let transformation = parse_sapl_file(
+            "policy \"test\" permit transform { \"id\": resource.id, \"name\": resource.name,\"phoneNumber\": resource.phoneNumber}",
+        );
         println!("{:#?}", transformation);
         println!();
     }
@@ -157,7 +163,9 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let advice = parse_sapl_file("policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }");
+        let advice = parse_sapl_file(
+            "policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }",
+        );
         println!("{:#?}", advice);
         println!();
     }
@@ -168,13 +176,16 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let obligation =
-            parse_sapl_file("policy \"test\" permit obligation { \"type\": \"sendEmail\", \"recipient\": patient.attendingDoctor, \"subject\": \"Data of your patient \" + (patient.name) + \" was changed.\", \"message\": \"Doctor \" + subject.name + \" changed the data.\" }");
+        let obligation = parse_sapl_file(
+            "policy \"test\" permit obligation { \"type\": \"sendEmail\", \"recipient\": patient.attendingDoctor, \"subject\": \"Data of your patient \" + (patient.name) + \" was changed.\", \"message\": \"Doctor \" + subject.name + \" changed the data.\" }",
+        );
         println!("{:#?}", obligation);
         println!();
     }
     {
-        let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+        let where_statement = parse_sapl_file(
+            "policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}",
+        );
         println!("{:#?}", where_statement);
         println!();
     }
@@ -201,8 +212,9 @@ fn sync_demo_part() {
         };
     }
     {
-        let policy_with_unvalid_target_expr =
-            parse_sapl_file("policy \"policy 3\" permit subject.name == resource.id.<patient.patientRecord>.attendingDoctor");
+        let policy_with_unvalid_target_expr = parse_sapl_file(
+            "policy \"policy 3\" permit subject.name == resource.id.<patient.patientRecord>.attendingDoctor",
+        );
         if let Ok(sapl_doc) = policy_with_unvalid_target_expr {
             match sapl_doc.validate() {
                 Ok(()) => println!("Sapl document {} successfully validated.", sapl_doc.name()),
@@ -218,8 +230,9 @@ fn sync_demo_part() {
         println!();
     }
     {
-        let basic_group =
-            parse_sapl_file("policy \"all authenticated users may access patient records\" permit action.java.name == \"getPatient\" & resource.http.requestedURI =~ \"^/patients/[0-9]+$\" where !(\"ROLE_ANONYMOUS\" in subject..authority);");
+        let basic_group = parse_sapl_file(
+            "policy \"all authenticated users may access patient records\" permit action.java.name == \"getPatient\" & resource.http.requestedURI =~ \"^/patients/[0-9]+$\" where !(\"ROLE_ANONYMOUS\" in subject..authority);",
+        );
         println!("{:#?}", basic_group);
         println!();
     }

@@ -14,4 +14,4 @@
 
 [workspace]
 
-members = [ "research/antlr-parser", "embedded-pdp", "research/file-reader", "sapl-core", "remote-pdp", "research/tokio-stream-demo"]
+members = [ "research/antlr-parser", "embedded-pdp", "research/file-reader", "sapl-core", "remote-pdp", "research/tokio-stream-demo", "research/pest-parse-demo"]
