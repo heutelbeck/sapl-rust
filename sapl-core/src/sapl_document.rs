@@ -18,6 +18,9 @@ use crate::{AuthorizationSubscription, Decision, Import, Schema};
 use std::pin::Pin;
 use tokio_stream::Stream;
 
+mod combining_algorithm;
+pub use combining_algorithm::CombiningAlgorithm;
+
 mod policy;
 pub use policy::Policy;
 

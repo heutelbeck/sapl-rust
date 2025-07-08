@@ -14,21 +14,21 @@
     under the License.
 */
 
-use crate::combining_algorithm::PolicyDocumentCombiningAlgorithm;
+use sapl_core::CombiningAlgorithm;
 use serde::Deserialize;
 use std::{fs::File, path::Path};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PdpConfig {
-    pub algorithm: PolicyDocumentCombiningAlgorithm,
+    pub algorithm: CombiningAlgorithm,
     _variables: Option<serde_json::Value>,
 }
 
 impl Default for PdpConfig {
     fn default() -> Self {
         PdpConfig {
-            algorithm: PolicyDocumentCombiningAlgorithm::DENY_UNLESS_PERMIT,
+            algorithm: CombiningAlgorithm::DENY_UNLESS_PERMIT,
             _variables: None,
         }
     }
@@ -39,8 +39,15 @@ impl PdpConfig {
         match p.try_exists() {
             Ok(true) => {
                 let file = File::open(p).unwrap();
-                match serde_json::from_reader(file) {
-                    Ok(config) => config,
+                match serde_json::from_reader::<std::fs::File, PdpConfig>(file) {
+                    Ok(config) => {
+                        if config.algorithm == CombiningAlgorithm::FIRST_APPLICABLE {
+                            panic!(
+                                "Fist-applicable is not allowed on PDP level for document combination!"
+                            );
+                        }
+                        config
+                    }
                     Err(e) => {
                         println!("Error while reading pdp configuration: {e:#?}");
                         PdpConfig::default()
@@ -55,6 +62,11 @@ impl PdpConfig {
     }
 
     pub fn update_algorithm(&mut self, path: &Path) {
-        self.algorithm = PdpConfig::new(path).algorithm;
+        self.algorithm = match PdpConfig::new(path).algorithm {
+            CombiningAlgorithm::FIRST_APPLICABLE => {
+                panic!("Fist-applicable is not allowed on PDP level for document combination!")
+            }
+            others => others,
+        };
     }
 }

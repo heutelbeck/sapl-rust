@@ -24,11 +24,11 @@ pub use crate::file_reader::*;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
 use crate::{
-    combining_algorithm::{DenyUnlessPermit, PermitUnlessDeny, PolicyDocumentCombiningAlgorithm},
+    combining_algorithm::{DenyUnlessPermit, PermitUnlessDeny},
     pdp_config::PdpConfig,
 };
 use futures::Stream;
-use sapl_core::{Decision, SaplDocument, parse_sapl_file};
+use sapl_core::{CombiningAlgorithm, Decision, SaplDocument, parse_sapl_file};
 use serde_json::{Value, json};
 use std::{
     fs::{self, read_dir},
@@ -61,7 +61,7 @@ impl Pdp {
     }
 
     pub fn decide_once(&self, auth_sub: AuthorizationSubscription) -> Value {
-        use PolicyDocumentCombiningAlgorithm::*;
+        use CombiningAlgorithm::*;
 
         // Acquire read locks to access the inner data
         // TODO check if files gets updated how to handle this?
@@ -71,6 +71,9 @@ impl Pdp {
         match &config_guard.algorithm {
             DENY_UNLESS_PERMIT => policies_guard.iter().deny_unless_permit(&auth_sub),
             PERMIT_UNLESS_DENY => policies_guard.iter().permit_unless_deny(&auth_sub),
+            FIRST_APPLICABLE => {
+                panic!("First-applicable is not allowed on PDP level for document combination!")
+            }
             others => unimplemented!("The pdp alogrithm {:#?} is not yet implemented.", others),
         }
     }
@@ -79,7 +82,7 @@ impl Pdp {
         &self,
         auth_sub: AuthorizationSubscription,
     ) -> Pin<Box<(dyn Stream<Item = Value> + Send)>> {
-        use PolicyDocumentCombiningAlgorithm::*;
+        use CombiningAlgorithm::*;
 
         // Acquire read locks to access the inner data
         // TODO check if files gets updated how to handle this?

@@ -14,21 +14,8 @@
     under the License.
 */
 
-use serde::Deserialize;
-
 mod deny_unless_permit_stream;
 pub(crate) use deny_unless_permit_stream::DenyUnlessPermit;
 
 mod permit_unless_deny_stream;
 pub(crate) use permit_unless_deny_stream::PermitUnlessDeny;
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, Deserialize, Default)]
-pub enum PolicyDocumentCombiningAlgorithm {
-    #[default]
-    DENY_UNLESS_PERMIT,
-    PERMIT_UNLESS_DENY,
-    ONLY_ONE_APPLICABLE,
-    DENY_OVERRIDES,
-    PERMIT_OVERRIDES,
-}
