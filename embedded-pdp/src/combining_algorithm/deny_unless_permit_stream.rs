@@ -71,14 +71,13 @@ impl DenyUnlessPermit {
     }
 
     fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
-        let mut evaluation_needed = false;
+        let mut evaluation_needed = true;
         for (i, result) in results.into_iter().enumerate() {
             if result.is_pending() {
-                continue;
+                evaluation_needed = false;
             }
-            if self.decisions[i] != result {
+            if self.decisions[i] != result && !result.is_pending() {
                 self.decisions[i] = result;
-                evaluation_needed = true;
             }
         }
 
@@ -110,16 +109,22 @@ impl Stream for DenyUnlessPermit {
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
         let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
-        results.push(Pending);
-        results.push(Pending);
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();
 
-            if this.decisions[i] != Ready(None) {
-                results[i] = s.poll_next(cx);
+            results.push(if this.decisions[i] != Ready(None) {
+                s.poll_next(cx)
             } else {
-                results[i] = Ready(None);
+                Ready(None)
+            });
+        }
+
+        if !self.is_first_decision_done() {
+            for (i, result) in results.clone().into_iter().enumerate() {
+                if self.as_mut().project().decisions[i] != result && !result.is_pending() {
+                    self.as_mut().project().decisions[i] = result;
+                }
             }
         }
 
@@ -141,11 +146,6 @@ impl Stream for DenyUnlessPermit {
                 Pending => Pending,
             }
         } else {
-            for (i, result) in results.into_iter().enumerate() {
-                if self.as_mut().project().decisions[i] != result {
-                    self.as_mut().project().decisions[i] = result;
-                }
-            }
             Pending
         }
     }

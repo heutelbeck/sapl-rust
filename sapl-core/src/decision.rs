@@ -22,7 +22,7 @@ use std::fmt::Display;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Decision {
     Permit,
     Deny,
@@ -47,7 +47,7 @@ impl Display for Decision {
             Decision::Indeterminate => "INDETERMINATE",
             Decision::NotApplicable => "NOT_APPLICABLE",
         };
-        write!(f, "{}", decision_str)
+        write!(f, "{decision_str}")
     }
 }
 
@@ -91,11 +91,11 @@ where
                 Ok(Val::Boolean(true)) => Ready(Some(Decision::entitlement(&self.entitlement))),
                 Ok(Val::Boolean(false)) => Ready(Some(Decision::NotApplicable)),
                 Err(e) => {
-                    println!("Err evaluate where statement: {:#?}", e);
+                    println!("Err evaluate where statement: {e:#?}");
                     Ready(Some(Decision::Indeterminate))
                 }
                 _ => {
-                    println!("Err evaluate where statement: {:#?}", val);
+                    println!("Err evaluate where statement: {val:#?}");
                     Ready(Some(Decision::Indeterminate))
                 }
             },
