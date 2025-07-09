@@ -57,11 +57,33 @@ impl PolicySet {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        Ok(())
+        let mut result = String::new();
+
+        for p in &self.policies {
+            if let Err(e) = p.validate() {
+                result.push_str(&e);
+            }
+        }
+
+        if result.is_empty() {
+            Ok(())
+        } else {
+            Err(result)
+        }
     }
 
-    pub fn evaluate(&self, _auth_subscription: &AuthorizationSubscription) -> Decision {
-        Decision::NotApplicable
+    pub fn evaluate(&self, auth_sub: &AuthorizationSubscription) -> Decision {
+        use CombiningAlgorithm::*;
+
+        match &self.combining_algorithm {
+            DENY_OVERRIDES => self.policies.iter().deny_overrides(&auth_sub),
+            DENY_UNLESS_PERMIT => self.policies.iter().deny_unless_permit(&auth_sub),
+            FIRST_APPLICABLE => self.policies.iter().first_applicable(&auth_sub),
+            ONLY_ONE_APPLICABLE => self.policies.iter().only_one_applicable(&auth_sub),
+            PERMIT_OVERRIDES => self.policies.iter().permit_overrides(&auth_sub),
+            PERMIT_UNLESS_DENY => self.policies.iter().permit_unless_deny(&auth_sub),
+            _ => panic!(),
+        }
     }
 
     pub async fn evaluate_as_stream(
@@ -73,5 +95,161 @@ impl PolicySet {
             yield Decision::NotApplicable;
             future::pending::<()>().await;
         }
+    }
+}
+
+trait PolicySetCombiningAlgorithmExt<'a> {
+    fn deny_overrides(self, auth_sub: &AuthorizationSubscription) -> Decision;
+    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> Decision;
+    fn first_applicable(self, auth_sub: &AuthorizationSubscription) -> Decision;
+    fn only_one_applicable(self, auth_sub: &AuthorizationSubscription) -> Decision;
+    fn permit_overrides(self, auth_sub: &AuthorizationSubscription) -> Decision;
+    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> Decision;
+}
+
+impl<'a, I> PolicySetCombiningAlgorithmExt<'a> for I
+where
+    I: Iterator<Item = &'a Policy>,
+{
+    fn deny_overrides(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        let mut indeterminate = false;
+        let mut permit = false;
+        for policy in self {
+            let decision = policy.evaluate(auth_sub);
+            if Decision::Deny == decision {
+                return decision;
+            }
+            if Decision::Indeterminate == decision {
+                indeterminate = true;
+            }
+            if Decision::Permit == decision {
+                permit = true;
+            }
+        }
+
+        if indeterminate {
+            return Decision::Indeterminate;
+        }
+
+        if permit {
+            return Decision::Permit;
+        }
+
+        Decision::NotApplicable
+    }
+
+    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        for policy in self {
+            let decision = policy.evaluate(auth_sub);
+            if Decision::Permit == decision {
+                return decision;
+            }
+        }
+
+        Decision::Deny
+    }
+
+    fn first_applicable(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        for policy in self {
+            let decision = policy.evaluate(auth_sub);
+            if Decision::NotApplicable != decision {
+                return decision;
+            }
+        }
+
+        Decision::NotApplicable
+    }
+
+    fn only_one_applicable(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        let mut cnt = 0;
+        let mut decision = Decision::NotApplicable;
+        for policy in self {
+            match policy.evaluate(auth_sub) {
+                Decision::Indeterminate => return Decision::Indeterminate,
+                Decision::Permit => {
+                    cnt += 1;
+                    decision = Decision::Permit;
+                }
+                Decision::Deny => {
+                    cnt += 1;
+                    decision = Decision::Deny;
+                }
+                Decision::NotApplicable => {}
+            }
+        }
+
+        match cnt {
+            0..=1 => decision,
+            _ => Decision::Indeterminate,
+        }
+    }
+
+    fn permit_overrides(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        let mut indeterminate = false;
+        let mut deny = false;
+        for policy in self {
+            let decision = policy.evaluate(auth_sub);
+            if Decision::Permit == decision {
+                return decision;
+            }
+            if Decision::Indeterminate == decision {
+                indeterminate = true;
+            }
+            if Decision::Deny == decision {
+                deny = true;
+            }
+        }
+
+        if indeterminate {
+            return Decision::Indeterminate;
+        }
+
+        if deny {
+            return Decision::Permit;
+        }
+
+        Decision::NotApplicable
+    }
+
+    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> Decision {
+        for policy in self {
+            let decision = policy.evaluate(auth_sub);
+            if Decision::Deny == decision {
+                return decision;
+            }
+        }
+
+        Decision::Permit
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse_sapl_file;
+
+    #[test]
+    fn policy_set_validate_ok() {
+        let ps = parse_sapl_file(
+            "set \"demo\" first-applicable for action.java.name == \"getDocuments\" policy \"first\" permit where time.secondOf(<time.now>) < 20; policy \"second\" permit where time.secondOf(<time.now>) < 40; policy \"third\" permit",
+        );
+        assert!(ps.expect("parsing failed").validate().is_ok());
+    }
+
+    #[test]
+    fn policy_set_valiate_target_expr_lazy_and() {
+        let ps = parse_sapl_file(
+            "set \"demo\" first-applicable for action.java.name == \"getDocuments\" policy \"first\" permit 5 < 6 && 4 > 3 policy \"second\" permit where time.secondOf(<time.now>) < 40; policy \"third\" permit",
+        );
+
+        assert!(ps.expect("parsing failed").validate().is_err());
+    }
+
+    #[test]
+    fn policy_set_valiate_target_expr_lazy_or() {
+        let ps = parse_sapl_file(
+            "set \"demo\" first-applicable for action.java.name == \"getDocuments\" policy \"first\" permit permit where time.secondOf(<time.now>) < 20; policy \"second\" permit 5 < 6 || 4 > 3 policy \"third\" permit",
+        );
+
+        assert!(ps.expect("parsing failed").validate().is_err());
     }
 }
