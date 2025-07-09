@@ -38,9 +38,6 @@ pub(crate) fn le(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<V
         }
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
-        (lhs, rhs) => Err(format!(
-            "less for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
-        )),
+        (lhs, rhs) => Err(format!("less for {lhs:#?} and {rhs:#?} is not implemented")),
     }
 }

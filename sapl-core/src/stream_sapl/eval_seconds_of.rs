@@ -16,7 +16,7 @@
 
 use crate::Val;
 use chrono::Timelike;
-use futures::{stream::Fuse, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream::Fuse};
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -49,12 +49,12 @@ where
         match self.as_mut().project().a.poll_next(cx) {
             Ready(Some(val)) => match val {
                 Ok(Val::DateTime(dt)) => {
+                    println!("eval_seconds_of debugging: {dt}");
                     Ready(Some(Ok(Val::Integer(dt.second().try_into().unwrap_or(0)))))
                 }
                 Err(e) => Ready(Some(Err(e))),
                 others => Ready(Some(Err(format!(
-                    "stream sapl seconds of for {:#?} is not implemented",
-                    others
+                    "stream sapl seconds of for {others:#?} is not implemented"
                 )))),
             },
             Pending => Pending,

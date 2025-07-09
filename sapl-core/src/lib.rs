@@ -36,6 +36,7 @@ pub use crate::advice::Advice;
 pub use crate::ast::{Ast, Op};
 pub use crate::decision::Decision;
 pub use crate::import::Import;
+pub use crate::sapl_document::CombiningAlgorithm;
 pub use crate::sapl_document::DocumentBody;
 pub use crate::sapl_document::Policy;
 pub use crate::sapl_document::PolicySet;
@@ -46,7 +47,7 @@ pub use crate::val::Val;
 
 use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;
-use pest::{pratt_parser::PrattParser, Parser};
+use pest::{Parser, pratt_parser::PrattParser};
 use pest_derive::Parser;
 use std::pin::Pin;
 use stream_sapl::StreamSapl;
@@ -93,38 +94,7 @@ impl Entitlement {
         } else if s.eq("deny") {
             Entitlement::Deny
         } else {
-            panic!("Input {} could not be parsed as entitlement", s)
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub enum CombiningAlgorithm {
-    #[default]
-    DenyOverrides,
-    PermitOverrides,
-    FirstApplicable,
-    OnlyOneApplicable,
-    DenyUnlessPermit,
-    PermitUnlessDeny,
-}
-
-impl CombiningAlgorithm {
-    fn new(s: &str) -> Self {
-        if s.eq("deny-overrides") {
-            CombiningAlgorithm::DenyOverrides
-        } else if s.eq("permit-overrides") {
-            CombiningAlgorithm::PermitOverrides
-        } else if s.eq("first-applicable") {
-            CombiningAlgorithm::FirstApplicable
-        } else if s.eq("only-one-applicable") {
-            CombiningAlgorithm::OnlyOneApplicable
-        } else if s.eq("deny-unless-permit") {
-            CombiningAlgorithm::DenyUnlessPermit
-        } else if s.eq("permit-unless-deny") {
-            CombiningAlgorithm::PermitUnlessDeny
-        } else {
-            panic!("Input {} could not be parsed as combining algorithm", s)
+            panic!("Input {s} could not be parsed as entitlement")
         }
     }
 }
@@ -267,7 +237,9 @@ mod tests {
 
     #[test]
     fn parse_where_statement() {
-        let where_statement = parse_sapl_file("policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}");
+        let where_statement = parse_sapl_file(
+            "policy \"test_policy\" permit where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\"}",
+        );
         assert!(where_statement.is_ok());
     }
 
@@ -286,7 +258,9 @@ mod tests {
 
     #[test]
     fn parse_advice_with_pairs() {
-        let advice = parse_sapl_file("policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }");
+        let advice = parse_sapl_file(
+            "policy \"policy 1\" deny advice { \"type\": \"logAccess\", \"message\": (\"Administrator \" + subject.name + \" has manipulated patient: \" + action.http.requestedURI) }",
+        );
         assert!(advice.is_ok());
     }
     #[test]
@@ -306,7 +280,9 @@ mod tests {
 
     #[test]
     fn parse_all_options() {
-        let policy = parse_sapl_file("import filter as filter subject schema aSubjectSchema policy \"test_policy\" permit subject.id == \"anId\" | action == \"anAction\" where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\" } obligation \"logging:log_access\" advice \"logging:inform_admin\" transform resource.content |- filter.blacken");
+        let policy = parse_sapl_file(
+            "import filter as filter subject schema aSubjectSchema policy \"test_policy\" permit subject.id == \"anId\" | action == \"anAction\" where var variable = \"anAttribute\"; subject.attribute == variable; var foo = true schema {\"type\": \"boolean\" } obligation \"logging:log_access\" advice \"logging:inform_admin\" transform resource.content |- filter.blacken",
+        );
         assert!(policy.is_ok());
     }
 }

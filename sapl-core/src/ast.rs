@@ -14,15 +14,15 @@
     under the License.
 */
 
+use crate::Eval;
+use crate::PRATT_PARSER;
+use crate::Rule;
+use crate::StreamSapl;
+use crate::Val;
 use crate::authorization_subscription::AuthorizationSubscription;
 use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::functions::LocalTimeStream;
 use crate::once_val;
-use crate::Eval;
-use crate::Rule;
-use crate::StreamSapl;
-use crate::Val;
-use crate::PRATT_PARSER;
 
 use futures::Stream;
 use std::collections::VecDeque;
@@ -149,8 +149,12 @@ impl Ast {
                     }
                 }
                 Rule::basic_group => Ast::parse(pair.into_inner()),
-                Rule::basic_value => Ast::BasicValue(Arc::new(pair.into_inner().map(parse_pair).collect())),
-                Rule::basic_identifier => Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::basic_value => {
+                    Ast::BasicValue(Arc::new(pair.into_inner().map(parse_pair).collect()))
+                }
+                Rule::basic_identifier => {
+                    Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
+                }
                 Rule::array => Ast::Array(Arc::new(pair.into_inner().map(parse_pair).collect())),
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::boolean_literal => Ast::Boolean(pair.as_str().parse().unwrap()),
@@ -158,19 +162,38 @@ impl Ast {
                 Rule::float => Ast::Float(pair.as_str().trim().parse().unwrap()),
                 Rule::div => Ast::Div,
                 Rule::addition => Ast::Concat,
-                rule => unreachable!("Ast::parse_pair expected pairs, pair, string, boolean_literal, integer or float, found {:?}", rule),
+                rule => unreachable!(
+                    "Ast::parse_pair expected pairs, pair, string, boolean_literal, integer or float, found {:?}",
+                    rule
+                ),
             }
         }
         fn parse_basics(pair: pest::iterators::Pair<Rule>) -> Ast {
             match pair.as_rule() {
-                Rule::basic_identifier_expression => Ast::BasicIdentifierExpression(Arc::new(BasicIdentifierExpression::new(pair.as_str()))),
-                Rule::function_identifier => Ast::FunctionIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
-                Rule::arguments => Ast::Arguments(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
-                Rule::subscript => Ast::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
-                Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
-                Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(pair.into_inner().next().unwrap()))),
-                Rule::basic_identifier => Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect())),
-                Rule::filter_statement => Ast::FilterStatement(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::basic_identifier_expression => Ast::BasicIdentifierExpression(Arc::new(
+                    BasicIdentifierExpression::new(pair.as_str()),
+                )),
+                Rule::function_identifier => {
+                    Ast::FunctionIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
+                }
+                Rule::arguments => {
+                    Ast::Arguments(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
+                }
+                Rule::subscript => {
+                    Ast::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
+                }
+                Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(
+                    parse_basics(pair.into_inner().next().unwrap()),
+                )),
+                Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(
+                    Arc::new(parse_basics(pair.into_inner().next().unwrap())),
+                ),
+                Rule::basic_identifier => {
+                    Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
+                }
+                Rule::filter_statement => {
+                    Ast::FilterStatement(Arc::new(pair.into_inner().map(parse_basics).collect()))
+                }
                 Rule::array => Ast::Array(Arc::new(pair.into_inner().map(parse_basics).collect())),
                 Rule::signed_number => Ast::SignedNumber(pair.as_str().to_string()),
                 Rule::key_step => Ast::KeyStep(pair.as_str().to_string()),
@@ -178,15 +201,22 @@ impl Ast {
                 Rule::recursive_index_step => Ast::RecursiveIndexStep(pair.as_str().to_string()),
                 Rule::recursive_wildcard_step => Ast::RecursiveWildcardStep,
                 Rule::attribute_finder_step => Ast::AttributeFinderStep(pair.as_str().to_string()),
-                Rule::head_attribute_finder_step => Ast::HeadAttributeFinderStep(pair.as_str().to_string()),
-                Rule::pairs => Ast::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect())),
+                Rule::head_attribute_finder_step => {
+                    Ast::HeadAttributeFinderStep(pair.as_str().to_string())
+                }
+                Rule::pairs => {
+                    Ast::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect()))
+                }
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::integer => Ast::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::id => Ast::Id(pair.as_str().to_string()),
                 Rule::div => Ast::Div,
                 Rule::null_literal => Ast::Null,
                 Rule::undefined_literal => Ast::Undefined,
-                rule => unreachable!("Ast::parse_basic_identifier expected basic_identifier_expression, key_step, recursive_key_step, or attribute_finder_step, found {:?}", rule),
+                rule => unreachable!(
+                    "Ast::parse_basic_identifier expected basic_identifier_expression, key_step, recursive_key_step, or attribute_finder_step, found {:?}",
+                    rule
+                ),
             }
         }
         PRATT_PARSER
@@ -247,7 +277,9 @@ impl Ast {
     pub fn parse_where_statement(pair: pest::iterators::Pair<Rule>) -> Ast {
         match pair.as_rule() {
             Rule::condition => Ast::parse(pair.into_inner()),
-            Rule::variable_assignment => Ast::VariableAssignment(Arc::new(pair.into_inner().map(Ast::parse_where_statement).collect())),
+            Rule::variable_assignment => Ast::VariableAssignment(Arc::new(
+                pair.into_inner().map(Ast::parse_where_statement).collect(),
+            )),
             Rule::id => Ast::Id(pair.as_str().to_string()),
             rule => unreachable!(
                 "parse_where_statement expected conditon, variable_assignment, id, string, integer, floar, boolean_literal, pairs or pair, found {:?}",
@@ -268,8 +300,7 @@ impl Ast {
             Ok(Val::CompFloat(b, _)) => Ok(b),
             Ok(Val::CompInteger(b, _)) => Ok(b),
             other => Err(format!(
-                "Ast::evaluate expected Boolean or Expr, found {:#?}",
-                other
+                "Ast::evaluate expected Boolean or Expr, found {other:#?}"
             )),
         }
     }
@@ -351,8 +382,7 @@ impl Ast {
                 ),
             },
             other => Err(format!(
-                "Ast::evaluate_inner expected Boolean or Expr, found {:#?}",
-                other
+                "Ast::evaluate_inner expected Boolean or Expr, found {other:#?}"
             )),
         }
     }

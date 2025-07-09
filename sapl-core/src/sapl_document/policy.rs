@@ -18,17 +18,17 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio_stream::Stream;
 
-use crate::advice::Advice;
-use crate::ast::Ast;
-use crate::authorization_subscription::AuthorizationSubscription;
-use crate::stream_sapl::StreamSapl;
-use crate::transformation::Transformation;
 use crate::BoxedValStream;
 use crate::Decision;
 use crate::Entitlement;
 use crate::Eval;
 use crate::Rule;
 use crate::Val;
+use crate::advice::Advice;
+use crate::ast::Ast;
+use crate::authorization_subscription::AuthorizationSubscription;
+use crate::stream_sapl::StreamSapl;
+use crate::transformation::Transformation;
 use crate::{once_decision, once_val};
 
 #[derive(Debug, Default)]
@@ -184,7 +184,7 @@ impl Policy {
 
         match target {
             Err(e) => {
-                println!("Err evaluate target expression: {:#?}", e);
+                println!("Err evaluate target expression: {e:#?}");
                 Box::pin(once_decision(Decision::Indeterminate))
             }
             Ok(false) => Box::pin(once_decision(Decision::NotApplicable)),
@@ -233,7 +233,9 @@ mod tests {
 
     #[test]
     fn policy_parse_element_of() {
-        let element_of = parse_sapl_file("policy \"doctor and nurse access to patient data\" permit action.java.name == \"findById\" where \"ROLE_DOCTOR\" in subject..authority || \"ROLE_NURSE\" in subject..authority;");
+        let element_of = parse_sapl_file(
+            "policy \"doctor and nurse access to patient data\" permit action.java.name == \"findById\" where \"ROLE_DOCTOR\" in subject..authority || \"ROLE_NURSE\" in subject..authority;",
+        );
         assert!(element_of.is_ok());
     }
 }
