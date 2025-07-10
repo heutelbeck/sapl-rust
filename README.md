@@ -1,41 +1,53 @@
-# SAPL meets Rust
+# SAPL PDP Implementation in Rust
 
-## Voraussetzungen
+## Prerequisites
 
-Eine Rust Installation wird benötigt. Am einfachsten ist die Installation via [rustup](https://rustup.rs/). Nach der Installation kann der ganze workspace mit cargo mit dem folgenden Befehl übersetzt werden.
+A Rust installation is required. The easiest way to install is via [rustup](https://rustup.rs/). Use at minimum rust version 1.88.0. After installation, the entire workspace can be compiled with cargo using the following command.
 
 ```
 cargo build
 ```
 
-Alle Tests im workspace können mit dem folgenden Befehl übersetzt werden.
+All tests in the workspace can be executed with the following command.
 
 ```
 cargo test
 ```
 
-## Übersicht
+## Overview
 
 ![Structure](assets/structure.png)
 
 ### sapl-core
-Diese Bibliothek enthält eine [pest](https://pest.rs)))) Grammatik für das parsen von Sapl Policies. Auch die Logik für die Auswertung einer Subscription ist hier realisiert.
+
+This library contains a [pest](https://pest.rs) grammar for parsing SAPL policies. The logic for evaluating a policy with a given subscription or policy validation is also implemented here.
+
+Further information can be found in the [sapl-core readme](sapl-core/README.md). 
 
 ### embedded-pdp
-Diese Bibliothek realisiert mit der Hilfe von sapl-core einen [PDP](https://sapl.io/docs/3.0.0-SNAPSHOT/2_3_PolicyDecisionPoint/). Die Implementierung der verschiedenen Policiy Decision Kombinationsalgorithmen.
+
+This library implements a [PDP](https://sapl.io/docs/3.0.0-SNAPSHOT/2_3_PolicyDecisionPoint/) with the help of sapl-core. The implementation of the various policy decision combination algorithms.
+
 - [ ] DENY_UNLESS_PERMIT
 - [ ] PERMIT_UNLESS_DENY
 - [ ] ONLY_ONE_APPLICABLE
 - [ ] DENY_OVERRIDES
 - [ ] PERMIT_OVERRIDES
 
+Further information can be found in the [embedded-pdp readme](embedded-pdp/README.md). 
+
 ### pdp-server
-Ein mit dem Web Framework [Rocket](https://rocket.rs/) realisierter Server. Es sind die beiden folgenden RESTful Api Endpunkten realisiert
-* /api/pdp/decide => liefert einen Sapl Decision Stream im json Format
-* /api/pdp/decide_once => liefert eine Sapl Decision im json Format
+
+A server implemented with the web framework [Rocket](https://rocket.rs/). The following two RESTful API endpoints are implemented:
+* /api/pdp/decide => returns a SAPL decision stream in JSON format
+* /api/pdp/decide_once => returns a SAPL decision in JSON format
+
+Further information can be found in the [pdp-server readme](pdp-server/README.md). 
 
 ### research
-Hier sind Demos und Test Projekte enthalten.
-* antlr-parser => Test Projekt eines antlr parser für rust
-* file-reader => Demo Projekt zum Überwachen eines Verzeichnisses und lesen von Dateien
-* tokio-stream-demo => Demo Projekt zum streams
+
+This contains demos and test projects.
+
+* antlr-parser => Test project of an ANTLR parser for Rust
+* file-reader => Demo project for monitoring a directory and reading files
+* tokio-stream-demo => Demo project for streams
