@@ -1,4 +1,5 @@
-# pdp-server
+# SAPL Server RS - A SAPL Authorization Server
+This server is a Policy Decision Point (PDP) implemented in [Rust](https://www.rust-lang.org). It uses the Streaming Attribute Policy Language (SAPL) and provides authorization services through an HTTP API. SAPL is further explained on the [SAPL home page](https://sapl.io).
 
 ## TLS Configuration
 The path to certs and key is defined in the [Rocket.toml](Rocket.toml) file. In the tls folder is a self-signed certificate for quick and easy testing. [Rocket](https:://rocket.rs) works with pem file format. You can create your own certificate with the following command. 

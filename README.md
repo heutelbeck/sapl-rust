@@ -1,4 +1,4 @@
-# SAPL PDP Implementation in Rust
+# SAPL Implementation in Rust
 
 ## Prerequisites
 
@@ -36,13 +36,13 @@ This library implements a [PDP](https://sapl.io/docs/3.0.0-SNAPSHOT/2_3_PolicyDe
 
 Further information can be found in the [embedded-pdp readme](embedded-pdp/README.md). 
 
-### pdp-server
+### sapl-server-rs
 
 A server implemented with the web framework [Rocket](https://rocket.rs/). The following two RESTful API endpoints are implemented:
 * /api/pdp/decide => returns a SAPL decision stream in JSON format
-* /api/pdp/decide_once => returns a SAPL decision in JSON format
+* /api/pdp/decide-once => returns a SAPL decision in JSON format
 
-Further information can be found in the [pdp-server readme](pdp-server/README.md). 
+Further information can be found in the [sapl-server-rs readme](sapl-server-rs/README.md). 
 
 ### research
 
