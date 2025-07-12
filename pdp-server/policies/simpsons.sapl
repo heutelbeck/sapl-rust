@@ -1,0 +1,9 @@
+set "simpsons" first-applicable
+
+policy "bart"
+deny
+	subject == "bs@simpsons.com" & action == "read"
+
+policy "maggie"
+permit
+	subject == "ms@simpsons.com" & action == "read"

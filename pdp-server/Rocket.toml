@@ -1,7 +1,11 @@
 [default]
 address = "127.0.0.1"
-port = 8000
+port = 8443
 workers = 16
 max_blocking = 512
 keep_alive = 5
 ident = "SAPL"
+
+[default.tls]
+certs = "tls/cert.pem"
+key = "tls/key.pem"

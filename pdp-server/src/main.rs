@@ -63,7 +63,7 @@ fn decide(auth_sub: Json<AuthorizationSubscription>, pdp: &rocket::State<Pdp>) -
     }
 }
 
-#[post("/api/pdp/decideOnce", format = "json", data = "<auth_sub>")]
+#[post("/api/pdp/decide-once", format = "json", data = "<auth_sub>")]
 fn decide_once(auth_sub: Json<AuthorizationSubscription>, pdp: &rocket::State<Pdp>) -> Value {
     pdp.decide_once(auth_sub.into_inner())
 }
