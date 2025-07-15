@@ -14,11 +14,15 @@
     under the License.
 */
 
-use crate::{Ast, AuthorizationSubscription, CombiningAlgorithm, Decision, Policy, Rule};
-use async_stream::stream;
-use futures::future;
-use std::sync::Arc;
-use tokio_stream::Stream;
+use crate::{
+    Ast, AuthorizationSubscription, CombiningAlgorithm, Decision, Policy, Rule,
+    sapl_document::combining_algorithm::{
+        DenyOverrides, DenyUnlessPermit, FirstApplicable, OnlyOneApplicable, PermitOverrides,
+        PermitUnlessDeny,
+    },
+};
+use futures::Stream;
+use std::{pin::Pin, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct PolicySet {
@@ -82,18 +86,28 @@ impl PolicySet {
             ONLY_ONE_APPLICABLE => self.policies.iter().only_one_applicable(&auth_sub),
             PERMIT_OVERRIDES => self.policies.iter().permit_overrides(&auth_sub),
             PERMIT_UNLESS_DENY => self.policies.iter().permit_unless_deny(&auth_sub),
-            _ => panic!(),
         }
     }
 
-    pub async fn evaluate_as_stream(
+    pub fn evaluate_as_stream(
         &self,
-        _auth_subscription: &AuthorizationSubscription,
-        //) -> Box<dyn Stream<Item = Decision> + '_> {
-    ) -> impl Stream<Item = Decision> + '_ {
-        stream! {
-            yield Decision::NotApplicable;
-            future::pending::<()>().await;
+        auth_sub: &AuthorizationSubscription,
+    ) -> Pin<Box<dyn Stream<Item = Decision> + std::marker::Send>> {
+        use CombiningAlgorithm::*;
+
+        let policy_streams = self
+            .policies
+            .iter()
+            .map(|p| p.evaluate_as_stream(&auth_sub))
+            .collect();
+
+        match &self.combining_algorithm {
+            DENY_OVERRIDES => Box::pin(DenyOverrides::new(policy_streams)),
+            DENY_UNLESS_PERMIT => Box::pin(DenyUnlessPermit::new(policy_streams)),
+            FIRST_APPLICABLE => Box::pin(FirstApplicable::new(policy_streams)),
+            ONLY_ONE_APPLICABLE => Box::pin(OnlyOneApplicable::new(policy_streams)),
+            PERMIT_OVERRIDES => Box::pin(PermitOverrides::new(policy_streams)),
+            PERMIT_UNLESS_DENY => Box::pin(PermitUnlessDeny::new(policy_streams)),
         }
     }
 }
@@ -205,7 +219,7 @@ where
         }
 
         if deny {
-            return Decision::Permit;
+            return Decision::Deny;
         }
 
         Decision::NotApplicable

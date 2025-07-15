@@ -15,10 +15,10 @@
 */
 
 use crate::{AuthorizationSubscription, Decision, Import, Schema};
+use futures::Stream;
 use std::pin::Pin;
-use tokio_stream::Stream;
 
-mod combining_algorithm;
+pub mod combining_algorithm;
 pub use combining_algorithm::CombiningAlgorithm;
 
 mod policy;
@@ -50,7 +50,7 @@ impl SaplDocument {
         use DocumentBody::*;
         match &self.body {
             Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
-            PolicySet(_) => panic!("not implemented"),
+            PolicySet(ps) => Box::pin(ps.evaluate_as_stream(auth_subscription)),
         }
     }
 
