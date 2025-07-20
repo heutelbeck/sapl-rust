@@ -24,6 +24,8 @@ use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::functions::LocalTimeStream;
 use crate::once_val;
 
+use chrono::Local;
+use chrono::Timelike;
 use futures::Stream;
 use std::collections::VecDeque;
 use std::fmt::Display;
@@ -317,6 +319,7 @@ impl Ast {
             Integer(i) => Ok(Val::Integer(*i)),
             Float(i) => Ok(Val::Float(*i)),
             String(s) => Ok(Val::String(s.clone())),
+            BasicFunction(_) => Ok(Val::Integer(Local::now().second().try_into().unwrap_or(0))),
             BasicIdentifier(bi) => basic_identifier(bi, auth_subscription),
             Expr { lhs, op, rhs } => match op {
                 Op::Addition => add(
