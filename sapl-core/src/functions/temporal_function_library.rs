@@ -14,10 +14,13 @@
     under the License.
 */
 
-use chrono::{DateTime, Local, Timelike};
+use chrono::{DateTime, Timelike};
 
 use crate::Val;
 
-pub fn second_of(dt: DateTime<Local>) -> Val {
-    Val::Integer(dt.second().try_into().unwrap_or(0))
+pub(crate) fn second_of(s: &str) -> Result<Val, String> {
+    match DateTime::parse_from_rfc3339(s) {
+        Ok(dt) => Ok(Val::Integer(dt.second().try_into().unwrap_or(0))),
+        Err(e) => Err(e.to_string()),
+    }
 }

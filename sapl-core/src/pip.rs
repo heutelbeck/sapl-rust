@@ -14,4 +14,5 @@
     under the License.
 */
 
-pub(crate) mod temporal_function_library;
+pub mod time;
+pub(crate) use time::Time;

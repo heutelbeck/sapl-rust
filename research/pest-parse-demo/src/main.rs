@@ -17,8 +17,8 @@
 use sapl_core::{
     Val,
     authorization_subscription::AuthorizationSubscription,
-    functions::LocalTimeStream,
     parse_sapl_file,
+    pip::time::time_policy_information_point::Time,
     stream_sapl::{StreamSapl, once_val},
 };
 use tokio_stream::StreamExt;
@@ -40,7 +40,7 @@ async fn async_demo_part() {
 
     let mut o = once_val(Val::Integer(20));
 
-    let mut b = LocalTimeStream::default().eval_seconds_of();
+    let mut b = Time::default().eval_seconds_of();
 
     let mut b = o.eval_le(b);
 

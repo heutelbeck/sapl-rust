@@ -14,15 +14,12 @@
     under the License.
 */
 
-use chrono::{DateTime, Utc};
-
 #[derive(Debug, PartialEq)]
 pub enum Val {
     Boolean(bool),
     Integer(i32),
     Float(f32),
     String(String),
-    DateTime(DateTime<Utc>),
     CompInteger(bool, i32),
     CompFloat(bool, f32),
     None,
@@ -48,7 +45,6 @@ impl Clone for Val {
             Val::String(s) => Val::String(s.clone()),
             Val::Boolean(b) => Val::Boolean(*b),
             Val::Integer(i) => Val::Integer(*i),
-            Val::DateTime(dt) => Val::DateTime(*dt),
             Val::CompFloat(b, f) => Val::CompFloat(*b, *f),
             Val::CompInteger(b, i) => Val::CompInteger(*b, *i),
         }

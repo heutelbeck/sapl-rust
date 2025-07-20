@@ -21,8 +21,8 @@ use crate::StreamSapl;
 use crate::Val;
 use crate::authorization_subscription::AuthorizationSubscription;
 use crate::basic_identifier_expression::BasicIdentifierExpression;
-use crate::functions::LocalTimeStream;
 use crate::once_val;
+use crate::pip::Time;
 
 use chrono::Local;
 use chrono::Timelike;
@@ -557,7 +557,7 @@ impl Eval for Ast {
             Ast::BasicIdentifier(bi) => Box::pin(once_val(
                 crate::evaluate::basic_identifier(bi, auth_subscription).unwrap(),
             )),
-            Ast::BasicFunction(_) => Box::pin(LocalTimeStream::default().eval_seconds_of()),
+            Ast::BasicFunction(_) => Box::pin(Time::now(1000).eval_seconds_of()),
             Ast::Boolean(b) => Box::pin(once_val(Val::Boolean(*b))),
             Ast::Integer(i) => Box::pin(once_val(Val::Integer(*i))),
             Ast::Float(f) => Box::pin(once_val(Val::Float(*f))),

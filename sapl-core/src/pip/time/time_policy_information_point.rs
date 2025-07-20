@@ -14,8 +14,8 @@
     under the License.
 */
 
-use crate::delay::Delay;
 use crate::Val;
+use crate::delay::Delay;
 use chrono::Local;
 use std::{
     future::Future,
@@ -25,15 +25,15 @@ use std::{
 };
 use tokio_stream::Stream;
 
-pub struct LocalTimeStream {
+pub struct Time {
     duration: Duration,
     delay: Delay,
 }
 
-impl Default for LocalTimeStream {
+impl Default for Time {
     fn default() -> Self {
         Self {
-            duration: Duration::from_millis(1000),
+            duration: Duration::from_millis(1),
             delay: Delay {
                 when: Instant::now(),
             },
@@ -41,7 +41,18 @@ impl Default for LocalTimeStream {
     }
 }
 
-impl Stream for LocalTimeStream {
+impl Time {
+    pub fn now(update_interval_in_millis: u64) -> Self {
+        Self {
+            duration: Duration::from_millis(update_interval_in_millis),
+            delay: Delay {
+                when: Instant::now(),
+            },
+        }
+    }
+}
+
+impl Stream for Time {
     type Item = Result<Val, String>;
 
     fn poll_next(
@@ -52,7 +63,9 @@ impl Stream for LocalTimeStream {
             Poll::Ready(_) => {
                 let when = self.delay.when + self.duration;
                 self.delay = Delay { when };
-                Poll::Ready(Some(Ok(Val::DateTime(Local::now().into()))))
+                //why rfc3339
+                //https://docs.rs/chrono/0.4.19/chrono/struct.DateTime.html#method.parse_from_rfc3339
+                Poll::Ready(Some(Ok(Val::String(Local::now().to_rfc3339()))))
             }
             Poll::Pending => Poll::Pending,
         }
