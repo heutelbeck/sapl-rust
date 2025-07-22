@@ -15,16 +15,13 @@
 */
 use tokio_stream_demo::*;
 
-use futures::{pin_mut, stream};
+use futures::pin_mut;
 use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 use tokio::{select, time::interval};
-use tokio_stream::{wrappers::IntervalStream, Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt, wrappers::IntervalStream};
 
 #[tokio::main]
 async fn main() {
@@ -45,22 +42,22 @@ async fn main() {
 async fn stream_expr() {
     //let mut e = Ast::Boolean(true).eval();
     //println!("Die Expr lautet wie folgt: {:#?}", e.eval());
-    let mut e = Ast::Boolean(true).eval();
-    let mut e = Ast::Integer(42).eval().fuse();
+    let _e = Ast::Boolean(true).eval();
+    let _e = Ast::Integer(42).eval().fuse();
     //let mut e = Ast::BooleanStream(stream1).eval().fuse();
     let stream1 = BooleanIntervalNew::new(Duration::from_millis(1000));
     let stream2 = BooleanIntervalNew::new(Duration::from_millis(10000));
-    let mut e = stream1.eval_and(stream2);
+    let _e = stream1.eval_and(stream2);
 
-    let mut stream1 = IntegerInterval::new(5, Duration::from_millis(1000));
-    let mut stream2 = IntegerInterval::new(10, Duration::from_millis(2000));
-    let mut e = stream1.eval_ge(stream2);
+    let stream1 = IntegerInterval::new(5, Duration::from_millis(1000));
+    let stream2 = IntegerInterval::new(10, Duration::from_millis(2000));
+    let _e = stream1.eval_ge(stream2);
 
-    let mut e = TimeSecInterval::default();
+    let e = TimeSecInterval::default();
     let mut e = e.eval_ge(once(Val::Integer(30)));
 
     while let Some(v) = e.next().await {
-        println!("evaluation stream: {:#?}", v);
+        println!("evaluation stream: {v:#?}");
     }
 }
 
@@ -70,7 +67,7 @@ async fn combine_lazy_solution1() {
     let mut stream = stream1.combine_lazy(stream2);
 
     while let Some(v) = stream.next().await {
-        println!("stream_combine_lazy #1 = {:?}", v);
+        println!("stream_combine_lazy #1 = {v:?}");
     }
 }
 
@@ -80,7 +77,7 @@ async fn combine_eager_solution1() {
     let mut stream = stream1.combine_eager(stream2);
 
     while let Some(v) = stream.next().await {
-        println!("stream_combine_eager #1 = {:?}", v);
+        println!("stream_combine_eager #1 = {v:?}");
     }
 }
 
@@ -102,7 +99,7 @@ async fn simple_stream_1() {
         .map(move |_| b.fetch_not(Ordering::SeqCst));
 
     while let Some(v) = stream.next().await {
-        println!("simple_stream = {:?}", v);
+        println!("simple_stream = {v:?}");
     }
 }
 
@@ -110,7 +107,7 @@ async fn simple_stream_2() {
     let mut stream = BooleanInterval::new(Duration::from_millis(2500));
 
     while let Some(v) = stream.next().await {
-        println!("simple_stream 2500ms = {:?}", v);
+        println!("simple_stream 2500ms = {v:?}");
     }
 }
 
@@ -118,7 +115,7 @@ async fn simple_stream_3() {
     let mut stream = BooleanInterval::new(Duration::from_millis(5000));
 
     while let Some(v) = stream.next().await {
-        println!("simple_stream 5000ms = {:?}", v);
+        println!("simple_stream 5000ms = {v:?}");
     }
 }
 
@@ -128,7 +125,7 @@ async fn filter_merge_stream() {
     let mut stream = stream1.filter(|x| *x).merge(stream2.filter(|x| *x));
 
     while let Some(v) = stream.next().await {
-        println!("filter_merge_stream = {:?}", v);
+        println!("filter_merge_stream = {v:?}");
     }
 }
 
@@ -137,7 +134,7 @@ async fn merge_stream() {
         .merge(BooleanInterval::new(Duration::from_millis(5000)));
 
     while let Some(v) = rx.next().await {
-        println!("merge_stream = {:?}", v);
+        println!("merge_stream = {v:?}");
     }
 }
 

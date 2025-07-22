@@ -33,14 +33,12 @@ pub(crate) fn div(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<
             if r == 0.0 {
                 return Err("Divide by zero".to_string());
             };
-
             Ok(Val::Float(l / r))
         }
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "divide evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "divide evaluation for {lhs:#?} and {rhs:#?} is not implemented"
         )),
     }
 }

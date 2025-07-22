@@ -14,7 +14,7 @@
     under the License.
 */
 
-use crate::{basic_identifier_expression::BasicIdentifierExpression, Ast, Rule};
+use crate::{Ast, Rule, basic_identifier_expression::BasicIdentifierExpression};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -34,10 +34,7 @@ impl Schema {
                 Rule::basic_identifier_expression => {
                     BasicIdentifierExpression::new(sapl_id.as_str()).to_string()
                 }
-                rule => panic!(
-                    "Schema expect id or basic_identifier_expression, found {:?}",
-                    rule
-                ),
+                rule => panic!("Schema expect id or basic_identifier_expression, found {rule:?}"),
             },
             expr: Arc::new(Ast::parse(inner_rules)),
         }
@@ -48,10 +45,10 @@ impl Schema {
             Some(err) => {
                 let mut joined = String::new();
                 joined.push_str(
-                    &format!("The validation of schema in policy {} was not successful for the following reasons:\n", name)
+                    &format!("The validation of schema in policy {name} was not successful for the following reasons:\n")
                 );
                 for e in err {
-                    joined.push_str(&format!("* {}\n", e));
+                    joined.push_str(&format!("* {e}\n"));
                 }
                 Some(joined)
             }

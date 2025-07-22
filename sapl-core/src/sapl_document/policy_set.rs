@@ -51,8 +51,7 @@ impl PolicySet {
                 }
                 Rule::policy => policy_set.policies.push(Policy::new(pair.into_inner())),
                 rule => unreachable!(
-                    "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {:?}",
-                    rule
+                    "Sapl::parse expected policy_set_name, combining_algorithm or policy, found {rule:?}"
                 ),
             }
         }
@@ -80,12 +79,12 @@ impl PolicySet {
         use CombiningAlgorithm::*;
 
         match &self.combining_algorithm {
-            DENY_OVERRIDES => self.policies.iter().deny_overrides(&auth_sub),
-            DENY_UNLESS_PERMIT => self.policies.iter().deny_unless_permit(&auth_sub),
-            FIRST_APPLICABLE => self.policies.iter().first_applicable(&auth_sub),
-            ONLY_ONE_APPLICABLE => self.policies.iter().only_one_applicable(&auth_sub),
-            PERMIT_OVERRIDES => self.policies.iter().permit_overrides(&auth_sub),
-            PERMIT_UNLESS_DENY => self.policies.iter().permit_unless_deny(&auth_sub),
+            DENY_OVERRIDES => self.policies.iter().deny_overrides(auth_sub),
+            DENY_UNLESS_PERMIT => self.policies.iter().deny_unless_permit(auth_sub),
+            FIRST_APPLICABLE => self.policies.iter().first_applicable(auth_sub),
+            ONLY_ONE_APPLICABLE => self.policies.iter().only_one_applicable(auth_sub),
+            PERMIT_OVERRIDES => self.policies.iter().permit_overrides(auth_sub),
+            PERMIT_UNLESS_DENY => self.policies.iter().permit_unless_deny(auth_sub),
         }
     }
 
@@ -98,7 +97,7 @@ impl PolicySet {
         let policy_streams = self
             .policies
             .iter()
-            .map(|p| p.evaluate_as_stream(&auth_sub))
+            .map(|p| p.evaluate_as_stream(auth_sub))
             .collect();
 
         match &self.combining_algorithm {

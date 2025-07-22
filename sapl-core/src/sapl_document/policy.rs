@@ -79,10 +79,9 @@ impl Policy {
                             .collect(),
                     );
                 }
-                rule => unreachable!(
-                    "Sapl::parse expected policy_name or entitlement, found {:?}",
-                    rule
-                ),
+                rule => {
+                    unreachable!("Sapl::parse expected policy_name or entitlement, found {rule:?}")
+                }
             }
         }
 
@@ -96,7 +95,7 @@ impl Policy {
                     let mut joined = String::new();
                     joined.push_str(&format!("The validation of target expression in the policy {} was not successful for the following reasons:\n", &self.name));
                     for e in err {
-                        joined.push_str(&format!("* {}\n", e));
+                        joined.push_str(&format!("* {e}\n"));
                     }
                     Err(joined)
                 }

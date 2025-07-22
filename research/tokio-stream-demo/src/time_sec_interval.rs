@@ -15,7 +15,6 @@
 */
 
 use crate::delay::Delay;
-use crate::stream_sapl::StreamSapl;
 use crate::val::Val;
 use std::{
     future::Future,

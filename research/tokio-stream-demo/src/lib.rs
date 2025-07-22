@@ -21,7 +21,6 @@ mod stream_sapl;
 //mod add_expr;
 mod boolean_stream;
 mod boolean_stream_new;
-mod combine;
 mod combine_eager;
 mod combine_lazy;
 mod integer_stream;

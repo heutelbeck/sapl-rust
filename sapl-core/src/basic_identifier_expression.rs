@@ -39,10 +39,7 @@ impl BasicIdentifierExpression {
         } else if s.eq("environment") {
             BasicIdentifierExpression::Environment
         } else {
-            panic!(
-                "Input {} could not be parsed as basic identifier expression",
-                s
-            )
+            panic!("Input {s} could not be parsed as basic identifier expression")
         }
     }
 
