@@ -720,159 +720,141 @@ impl Display for ValidationErr {
 #[cfg(test)]
 mod tests {
     use crate::SaplParser;
-    use pest::Parser;
+    use pest::{Parser, iterators::Pairs};
     use tokio_stream::StreamExt;
 
     use super::*;
 
-    #[test]
-    fn expr_lazy_or() {
-        let mut pair = SaplParser::parse(Rule::expression, "a || b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier,
-            "wrong grammer rule"
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::lazy_or
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
+    fn parse_expression(input: &str) -> Pairs<Rule> {
+        SaplParser::parse(Rule::expression, input)
+            .unwrap_or_else(|e| panic!("Failed to parse '{input}': {e}"))
+    }
+
+    fn assert_next_rule(pairs: &mut Pairs<Rule>, expected: Rule) {
+        let actual = pairs
+            .next()
+            .unwrap_or_else(|| panic!("No more pairs available"))
+            .as_rule();
+        assert_eq!(actual, expected, "Expected {expected:?}, got {actual:?}");
+    }
+
+    fn assert_rule_sequence(mut pairs: Pairs<Rule>, expected_rules: &[Rule]) {
+        for &expected in expected_rules {
+            assert_next_rule(&mut pairs, expected);
+        }
+
+        assert!(
+            pairs.next().is_none(),
+            "Expected no more rules, but found additional ones"
         );
     }
 
-    #[test]
-    fn expr_lazy_and() {
-        let mut pair = SaplParser::parse(Rule::expression, "a && b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::lazy_and
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
+    fn parse_and_assert_rules(input: &str, expected_rules: &[Rule]) {
+        let pairs = parse_expression(input);
+        assert_rule_sequence(pairs, expected_rules);
     }
 
-    #[test]
-    fn expr_eager_or() {
-        let mut pair = SaplParser::parse(Rule::expression, "a | b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::eager_or
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
+    macro_rules! test_parse_rules {
+    ($test_name:ident, $input:expr, $($rule:expr),+ $(,)?) => {
+        #[test]
+        fn $test_name() {
+            parse_and_assert_rules($input, &[$($rule),+]);
+        }
+    };
     }
 
-    #[test]
-    fn expr_exclusive_or() {
-        let mut pair = SaplParser::parse(Rule::expression, "a ^ b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::exclusive_or
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
+    test_parse_rules!(
+        expr_lazy_or,
+        "a || b",
+        Rule::basic_identifier,
+        Rule::lazy_or,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_lazy_and,
+        "a && b",
+        Rule::basic_identifier,
+        Rule::lazy_and,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_eager_or,
+        "a | b",
+        Rule::basic_identifier,
+        Rule::eager_or,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_exclusive_or,
+        "a ^ b",
+        Rule::basic_identifier,
+        Rule::exclusive_or,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_eager_and,
+        "a & b",
+        Rule::basic_identifier,
+        Rule::eager_and,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_equal,
+        "a == b",
+        Rule::basic_identifier,
+        Rule::equal,
+        Rule::basic_identifier
+    );
+
+    test_parse_rules!(
+        expr_boolean_literal,
+        "false == true",
+        Rule::boolean_literal,
+        Rule::equal,
+        Rule::boolean_literal
+    );
+
+    fn parse(rule: Rule, input: &str) -> Result<Pairs<'_, Rule>, Box<pest::error::Error<Rule>>> {
+        Ok(SaplParser::parse(rule, input)?)
     }
 
-    #[test]
-    fn expr_eager_and() {
-        let mut pair = SaplParser::parse(Rule::expression, "a & b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::eager_and
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
+    fn parse_boolean_literal(
+        input: &str,
+    ) -> Result<Pairs<'_, Rule>, Box<pest::error::Error<Rule>>> {
+        parse(Rule::boolean_literal, input)
     }
 
-    #[test]
-    fn expr_equal() {
-        let mut pair = SaplParser::parse(Rule::expression, "a == b");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::equal
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::basic_identifier
-        );
-    }
-
-    #[test]
-    fn expr_boolean_literal() {
-        let mut pair = SaplParser::parse(Rule::expression, "false == true");
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::boolean_literal
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::equal
-        );
-        assert_eq!(
-            pair.as_mut().unwrap().next().unwrap().as_rule(),
-            Rule::boolean_literal
-        );
+    fn parse_as_rule(rule: Rule, input: &str) -> Rule {
+        parse(rule, input).unwrap().next().unwrap().as_rule()
     }
 
     #[test]
     fn boolean_literal_false() {
-        let pair = SaplParser::parse(Rule::boolean_literal, "false");
         assert_eq!(
-            pair.unwrap().next().unwrap().as_rule(),
+            parse_as_rule(Rule::boolean_literal, "false"),
             Rule::boolean_literal,
         );
-        let pair = SaplParser::parse(Rule::boolean_literal, "FALSE");
-        assert!(pair.is_err());
-        let pair = SaplParser::parse(Rule::boolean_literal, "False");
-        assert!(pair.is_err());
-        let pair = SaplParser::parse(Rule::boolean_literal, "LoremIpsum");
-        assert!(pair.is_err());
+
+        assert!(parse_boolean_literal("FALSE").is_err());
+        assert!(parse_boolean_literal("False").is_err());
+        assert!(parse_boolean_literal("LoremIpsum").is_err());
     }
 
     #[test]
     fn boolean_literal_true() {
-        let pair = SaplParser::parse(Rule::boolean_literal, "true");
         assert_eq!(
-            pair.unwrap().next().unwrap().as_rule(),
+            parse_as_rule(Rule::boolean_literal, "true"),
             Rule::boolean_literal,
         );
-        let pair = SaplParser::parse(Rule::boolean_literal, "TRUE");
-        assert!(pair.is_err());
-        let pair = SaplParser::parse(Rule::boolean_literal, "True");
-        assert!(pair.is_err());
-        let pair = SaplParser::parse(Rule::boolean_literal, "LoremIpsum");
-        assert!(pair.is_err());
+
+        assert!(parse_boolean_literal("TRUE").is_err());
+        assert!(parse_boolean_literal("True").is_err());
+        assert!(parse_boolean_literal("LoremIpsum").is_err());
     }
 
     #[test]
