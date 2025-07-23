@@ -19,7 +19,6 @@ use crate::Val;
 pub(crate) fn le(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
-        (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(!l & r)),
         (Ok(Integer(l)), Ok(Integer(r))) => Ok(CompInteger(l < r, r)),
         (Ok(CompInteger(eval, l)), Ok(Integer(r))) => {
             if eval {
@@ -38,6 +37,8 @@ pub(crate) fn le(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<V
         }
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
-        (lhs, rhs) => Err(format!("less for {lhs:#?} and {rhs:#?} is not implemented")),
+        (lhs, rhs) => Err(format!(
+            "Type mismatch. Less operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
+        )),
     }
 }

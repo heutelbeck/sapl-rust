@@ -39,8 +39,7 @@ pub(crate) fn ge(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<V
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "greater for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Greater operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

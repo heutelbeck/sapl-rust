@@ -19,20 +19,14 @@ use crate::Val;
 pub(crate) fn le_eq(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
-        (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(l <= r)),
         (Ok(Integer(l)), Ok(Integer(r))) => Ok(Boolean(l <= r)),
         (Ok(Float(l)), Ok(Float(r))) => Ok(Boolean(l <= r)),
-        (Ok(CompInteger(l, _)), Ok(Boolean(r))) => Ok(Boolean(l <= r)),
-        (Ok(Boolean(l)), Ok(CompInteger(r, _))) => Ok(Boolean(l <= r)),
         (Ok(CompInteger(l, _)), Ok(CompInteger(r, _))) => Ok(Boolean(l <= r)),
-        (Ok(CompFloat(l, _)), Ok(Boolean(r))) => Ok(Boolean(l <= r)),
-        (Ok(Boolean(l)), Ok(CompFloat(r, _))) => Ok(Boolean(l <= r)),
         (Ok(CompFloat(l, _)), Ok(CompFloat(r, _))) => Ok(Boolean(l <= r)),
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "less equal evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Less or equals operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

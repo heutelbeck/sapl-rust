@@ -24,8 +24,7 @@ pub(crate) fn sub(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "sub evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Subtraction operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

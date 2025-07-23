@@ -24,8 +24,7 @@ pub(crate) fn xor(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "exclusive or for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Xor operation expects boolean values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

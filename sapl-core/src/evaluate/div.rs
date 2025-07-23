@@ -38,7 +38,7 @@ pub(crate) fn div(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "divide evaluation for {lhs:#?} and {rhs:#?} is not implemented"
+            "Type mismatch. Division operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

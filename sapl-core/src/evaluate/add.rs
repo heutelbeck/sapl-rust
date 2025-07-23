@@ -24,7 +24,7 @@ pub(crate) fn add(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "addition evaluation for {lhs:#?} and {rhs:#?} is not implemented"
+            "Type mismatch. Addition operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

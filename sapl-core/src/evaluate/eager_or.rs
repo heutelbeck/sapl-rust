@@ -29,8 +29,7 @@ pub(crate) fn eager_or(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Re
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "eager or evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Eager or operation expects boolean values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

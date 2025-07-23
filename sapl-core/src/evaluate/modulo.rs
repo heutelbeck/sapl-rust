@@ -19,13 +19,22 @@ use crate::Val;
 pub(crate) fn modulo(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
-        (Ok(Integer(l)), Ok(Integer(r))) => Ok(Integer(l % r)),
-        (Ok(Float(l)), Ok(Float(r))) => Ok(Float(l % r)),
+        (Ok(Integer(l)), Ok(Integer(r))) => {
+            if r == 0 {
+                return Err("Divided by zero".to_string());
+            }
+            Ok(Integer(l % r))
+        }
+        (Ok(Float(l)), Ok(Float(r))) => {
+            if r == 0.0 {
+                return Err("Divided by zero".to_string());
+            }
+            Ok(Float(l % r))
+        }
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "modulo evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Modulo operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

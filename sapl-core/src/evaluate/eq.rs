@@ -32,8 +32,7 @@ pub(crate) fn eq(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<V
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "equal evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Equal operation expects comparable values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }

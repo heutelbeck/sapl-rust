@@ -32,8 +32,7 @@ pub(crate) fn non_eq(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Resu
         (Err(e), _) => Err(e),
         (_, Err(e)) => Err(e),
         (lhs, rhs) => Err(format!(
-            "non equal evaluation for {:#?} and {:#?} is not implemented",
-            lhs, rhs,
+            "Type mismatch. Non equals operation expects comparable values, but got: {lhs:#?} and {rhs:#?}"
         )),
     }
 }
