@@ -53,8 +53,8 @@ pub(crate) fn basic_identifier(
             }
         }
         Value::Bool(b) => Ok(Val::Boolean(b)),
-        Value::Array(_) => Ok(Val::Boolean(false)),
+        Value::Array(a) => Ok(Val::String(format!("{a:#?}"))),
         Value::Null => Ok(Val::String("".to_string())),
-        Value::Object(_) => Ok(Val::Boolean(false)),
+        Value::Object(o) => Ok(Val::String(format!("{o:#?}"))),
     }
 }

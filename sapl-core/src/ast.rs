@@ -24,8 +24,6 @@ use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::once_val;
 use crate::pip::Time;
 
-use chrono::Local;
-use chrono::Timelike;
 use futures::Stream;
 use std::collections::VecDeque;
 use std::fmt::Display;
@@ -44,7 +42,7 @@ pub enum Ast {
         lhs: Arc<Ast>,
         rhs: Arc<Vec<Ast>>,
     },
-    BasicEnvironmentAttribute(Arc<Ast>),
+    BasicEnvironmentAttribute(Arc<Vec<Ast>>),
     BasicEnvironmentHeadAttribute(Arc<Ast>),
     BasicIdentifier(Arc<Vec<Ast>>),
     BasicFunction(Arc<Vec<Ast>>),
@@ -170,6 +168,7 @@ impl Ast {
                 ),
             }
         }
+
         fn parse_basics(pair: pest::iterators::Pair<Rule>) -> Ast {
             match pair.as_rule() {
                 Rule::basic_identifier_expression => Ast::BasicIdentifierExpression(Arc::new(
@@ -185,7 +184,7 @@ impl Ast {
                     Ast::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
                 }
                 Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(
-                    parse_basics(pair.into_inner().next().unwrap()),
+                    pair.into_inner().map(parse_basics).collect(),
                 )),
                 Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(
                     Arc::new(parse_basics(pair.into_inner().next().unwrap())),
@@ -228,7 +227,7 @@ impl Ast {
             Rule::basic_function => Ast::BasicFunction(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_group => Ast::BasicGroup(Arc::new(Ast::parse(primary.into_inner()))),
             Rule::basic_value => Ast::BasicValue(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
+            Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
             Rule::filter_component => Ast::FilterComponent(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::array => Ast::Array(Arc::new(primary.into_inner().map(parse_basics).collect())),
@@ -319,7 +318,7 @@ impl Ast {
             Integer(i) => Ok(Val::Integer(*i)),
             Float(i) => Ok(Val::Float(*i)),
             String(s) => Ok(Val::String(s.clone())),
-            BasicFunction(_) => Ok(Val::Integer(Local::now().second().try_into().unwrap_or(0))),
+            BasicFunction(bf) => basic_function(bf, auth_subscription),
             BasicIdentifier(bi) => basic_identifier(bi, auth_subscription),
             Expr { lhs, op, rhs } => match op {
                 Op::Addition => add(
@@ -557,7 +556,7 @@ impl Eval for Ast {
             Ast::BasicIdentifier(bi) => Box::pin(once_val(
                 crate::evaluate::basic_identifier(bi, auth_subscription).unwrap(),
             )),
-            Ast::BasicFunction(_) => Box::pin(Time::now(1000).eval_seconds_of()),
+            Ast::BasicFunction(_) => Box::pin(Time::new(1000).eval_seconds_of()),
             Ast::Boolean(b) => Box::pin(once_val(Val::Boolean(*b))),
             Ast::Integer(i) => Box::pin(once_val(Val::Integer(*i))),
             Ast::Float(f) => Box::pin(once_val(Val::Float(*f))),
@@ -589,6 +588,7 @@ impl Iterator for ExprIter {
                 }
                 Ast::SaplPairs(expr)
                 | Ast::BasicIdentifier(expr)
+                | Ast::BasicEnvironmentAttribute(expr)
                 | Ast::BasicFunction(expr)
                 | Ast::BasicValue(expr)
                 | Ast::FunctionIdentifier(expr)
@@ -606,7 +606,6 @@ impl Iterator for ExprIter {
                 | Ast::Arguments(expr)
                 | Ast::Subscript(expr)
                 | Ast::BasicGroup(expr)
-                | Ast::BasicEnvironmentAttribute(expr)
                 | Ast::BasicEnvironmentHeadAttribute(expr) => {
                     self.stack.push_back(Arc::clone(expr));
                 }

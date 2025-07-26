@@ -58,3 +58,6 @@ pub(crate) use sub::sub;
 
 mod basic_identifier;
 pub(super) use basic_identifier::basic_identifier;
+
+mod basic_function;
+pub(crate) use basic_function::basic_function;

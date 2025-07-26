@@ -42,13 +42,17 @@ impl Default for Time {
 }
 
 impl Time {
-    pub fn now(update_interval_in_millis: u64) -> Self {
+    pub fn new(update_interval_in_millis: u64) -> Self {
         Self {
             duration: Duration::from_millis(update_interval_in_millis),
             delay: Delay {
                 when: Instant::now(),
             },
         }
+    }
+
+    pub fn now() -> Result<Val, String> {
+        Ok(Val::String(Local::now().to_rfc3339()))
     }
 }
 

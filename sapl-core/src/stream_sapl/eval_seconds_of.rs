@@ -47,13 +47,7 @@ where
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Poll::*;
         match self.as_mut().project().a.poll_next(cx) {
-            Ready(Some(val)) => match val {
-                Ok(Val::String(s)) => Ready(Some(second_of(&s))),
-                Err(e) => Ready(Some(Err(e))),
-                others => Ready(Some(Err(format!(
-                    "stream sapl seconds of for {others:#?} is not implemented"
-                )))),
-            },
+            Ready(Some(val)) => Ready(Some(second_of(val))),
             Pending => Pending,
             Ready(None) => Ready(None),
         }
