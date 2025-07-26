@@ -14,32 +14,33 @@
     under the License.
 */
 
+use serde_json::Value;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio_stream::Stream;
 
+use crate::AuthorizationDecision;
 use crate::BoxedValStream;
 use crate::Decision;
 use crate::Entitlement;
 use crate::Eval;
 use crate::Rule;
 use crate::Val;
-use crate::advice::Advice;
 use crate::ast::Ast;
 use crate::authorization_subscription::AuthorizationSubscription;
 use crate::stream_sapl::StreamSapl;
 use crate::transformation::Transformation;
 use crate::{once_decision, once_val};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Policy {
-    pub name: String,
-    entitlement: Entitlement,
+    pub(crate) name: String,
+    pub(crate) entitlement: Entitlement,
     target_exp: Option<Arc<Ast>>,
     where_statements: Option<Arc<Vec<Ast>>>,
-    obligations: Option<Box<Ast>>,
-    advice: Option<Vec<Advice>>,
-    transformation: Option<Vec<Transformation>>,
+    obligations: Option<Arc<Ast>>,
+    advice: Option<Arc<Ast>>,
+    transformation: Option<Arc<Vec<Transformation>>>,
 }
 
 impl Policy {
@@ -66,18 +67,18 @@ impl Policy {
                     ));
                 }
                 Rule::obligation => {
-                    policy.obligations = Some(Box::new(Ast::parse(pair.clone().into_inner())));
+                    policy.obligations = Some(Arc::new(Ast::parse(pair.clone().into_inner())));
                 }
                 Rule::advice => {
-                    policy.advice = Some(pair.clone().into_inner().map(Advice::parse).collect());
+                    policy.advice = Some(Arc::new(Ast::parse(pair.clone().into_inner())));
                 }
                 Rule::transformation => {
-                    policy.transformation = Some(
+                    policy.transformation = Some(Arc::new(
                         pair.clone()
                             .into_inner()
                             .map(Transformation::parse)
                             .collect(),
-                    );
+                    ));
                 }
                 rule => {
                     unreachable!("Sapl::parse expected policy_name or entitlement, found {rule:?}")
@@ -105,7 +106,20 @@ impl Policy {
         }
     }
 
-    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
+    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
+        let result = self.evaluate_decison(auth_subscription);
+        match result {
+            Decision::Permit | Decision::Deny => AuthorizationDecision {
+                decision: result,
+                resource: None,
+                obligation: self.evaluate_obligation(auth_subscription),
+                advice: None,
+            },
+            _ => AuthorizationDecision::new(result),
+        }
+    }
+
+    pub fn evaluate_decison(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
         // false (not matching) |   don’t care  |   NOT_APPLICABLE
@@ -164,8 +178,8 @@ impl Policy {
 
     pub fn evaluate_as_stream(
         &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Pin<Box<dyn Stream<Item = Decision> + std::marker::Send>> {
+        auth_subscription: &Arc<AuthorizationSubscription>,
+    ) -> Pin<Box<dyn Stream<Item = AuthorizationDecision> + std::marker::Send>> {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
         // false (not matching) |   don’t care  |   NOT_APPLICABLE
@@ -189,7 +203,7 @@ impl Policy {
             Ok(false) => Box::pin(once_decision(Decision::NotApplicable)),
             Ok(true) => Box::pin(
                 self.evaluate_where_as_stream(auth_subscription)
-                    .eval_to_decision(self.entitlement.clone()),
+                    .eval_to_decision(self.clone(), auth_subscription),
             ),
         }
     }
@@ -223,6 +237,19 @@ impl Policy {
                 .expect("Error evaluating where statement"),
             &mut eval_streams,
         )
+    }
+
+    pub(crate) fn evaluate_obligation(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Option<Value> {
+        if let Some(obligation) = &self.obligations {
+            if let Ok(Val::Json(obj)) = obligation.evaluate_inner(auth_subscription) {
+                return Some(obj);
+            }
+        }
+
+        None
     }
 }
 

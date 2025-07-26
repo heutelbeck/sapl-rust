@@ -14,7 +14,7 @@
     under the License.
 */
 
-use crate::Decision;
+use crate::{AuthorizationDecision, Decision};
 use futures::Stream;
 use pin_project_lite::pin_project;
 use std::{
@@ -25,14 +25,14 @@ use std::{
 pin_project! {
     pub struct OnlyOneApplicable {
         #[pin]
-        streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>,
-        decisions: Vec<Poll<Option<Decision>>>,
+        streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
+        decisions: Vec<Poll<Option<AuthorizationDecision>>>,
         first_decision_done: bool,
     }
 }
 
 impl OnlyOneApplicable {
-    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>) -> Self {
+    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>) -> Self {
         OnlyOneApplicable {
             decisions: (0..streams.len()).map(|_| Poll::Pending).collect(),
             streams,
@@ -69,7 +69,10 @@ impl OnlyOneApplicable {
         finished
     }
 
-    fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
+    fn evaluate(
+        &mut self,
+        results: Vec<Poll<Option<AuthorizationDecision>>>,
+    ) -> Poll<Option<AuthorizationDecision>> {
         let mut evaluation_needed = true;
         for (i, result) in results.into_iter().enumerate() {
             if result.is_pending() {
@@ -89,34 +92,36 @@ impl OnlyOneApplicable {
         }
 
         let mut cnt = 0;
-        let mut decision = Decision::NotApplicable;
+        let mut auth_decision = AuthorizationDecision::new(Decision::NotApplicable);
         for d in &self.decisions {
             use Poll::*;
-            match *d {
-                Ready(Some(Decision::Indeterminate)) => {
-                    return Ready(Some(Decision::Indeterminate));
+            if let Ready(Some(r)) = d {
+                match r.decision {
+                    Decision::Indeterminate => {
+                        return Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)));
+                    }
+                    Decision::Permit => {
+                        cnt += 1;
+                        auth_decision.set_decision(Decision::Permit);
+                    }
+                    Decision::Deny => {
+                        cnt += 1;
+                        auth_decision.set_decision(Decision::Deny);
+                    }
+                    _ => {}
                 }
-                Ready(Some(Decision::Permit)) => {
-                    cnt += 1;
-                    decision = Decision::Permit;
-                }
-                Ready(Some(Decision::Deny)) => {
-                    cnt += 1;
-                    decision = Decision::Deny;
-                }
-                _ => {}
             }
         }
 
         match cnt {
-            0..=1 => Poll::Ready(Some(decision)),
-            _ => Poll::Ready(Some(Decision::Indeterminate)),
+            0..=1 => Poll::Ready(Some(auth_decision)),
+            _ => Poll::Ready(Some(AuthorizationDecision::new(Decision::Indeterminate))),
         }
     }
 }
 
 impl Stream for OnlyOneApplicable {
-    type Item = Decision;
+    type Item = AuthorizationDecision;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         //Check all streams, emit the first result after all decisions emit the first
@@ -125,7 +130,8 @@ impl Stream for OnlyOneApplicable {
 
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
-        let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
+        let mut results: Vec<Poll<Option<AuthorizationDecision>>> =
+            Vec::with_capacity(this.decisions.len());
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();

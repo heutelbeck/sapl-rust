@@ -21,6 +21,7 @@ use sapl_core::{
     pip::time::time_policy_information_point::Time,
     stream_sapl::{StreamSapl, once_val},
 };
+use std::sync::Arc;
 use tokio_stream::StreamExt;
 
 #[tokio::main]
@@ -34,9 +35,9 @@ async fn async_demo_part() {
     let time_policy =
         parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;");
 
-    let mut p = time_policy
-        .unwrap()
-        .evaluate_as_stream(&AuthorizationSubscription::new_example_subscription1());
+    let mut p = time_policy.unwrap().evaluate_as_stream(&Arc::new(
+        AuthorizationSubscription::new_example_subscription1(),
+    ));
 
     let o = once_val(Val::Integer(20));
 

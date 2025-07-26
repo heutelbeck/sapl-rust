@@ -16,7 +16,7 @@
 
 use futures::Stream;
 use pin_project_lite::pin_project;
-use sapl_core::Decision;
+use sapl_core::{AuthorizationDecision, Decision};
 use serde_json::Value;
 use std::{
     pin::Pin,
@@ -26,14 +26,14 @@ use std::{
 pin_project! {
     pub struct PermitUnlessDeny {
         #[pin]
-        streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>,
-        decisions: Vec<Poll<Option<Decision>>>,
+        streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
+        decisions: Vec<Poll<Option<AuthorizationDecision>>>,
         first_decision_done: bool,
     }
 }
 
 impl PermitUnlessDeny {
-    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>) -> Self {
+    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>) -> Self {
         PermitUnlessDeny {
             decisions: (0..streams.len()).map(|_| Poll::Pending).collect(),
             streams,
@@ -70,7 +70,10 @@ impl PermitUnlessDeny {
         finished
     }
 
-    fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
+    fn evaluate(
+        &mut self,
+        results: Vec<Poll<Option<AuthorizationDecision>>>,
+    ) -> Poll<Option<AuthorizationDecision>> {
         let mut evaluation_needed = true;
         for (i, result) in results.into_iter().enumerate() {
             if result.is_pending() {
@@ -89,12 +92,16 @@ impl PermitUnlessDeny {
             };
         }
 
+        let mut auth_decision = AuthorizationDecision::new(Decision::Permit);
         for d in &self.decisions {
-            if *d == Poll::Ready(Some(Decision::Deny)) {
-                return Poll::Ready(Some(Decision::Deny));
+            if let Poll::Ready(Some(v)) = d {
+                if v.decision == Decision::Deny {
+                    return Poll::Ready(Some(v.clone()));
+                }
+                auth_decision.collect(v.clone());
             }
         }
-        Poll::Ready(Some(Decision::Permit))
+        Poll::Ready(Some(auth_decision))
     }
 }
 
@@ -108,7 +115,8 @@ impl Stream for PermitUnlessDeny {
 
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
-        let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
+        let mut results: Vec<Poll<Option<AuthorizationDecision>>> =
+            Vec::with_capacity(this.decisions.len());
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();
@@ -130,17 +138,9 @@ impl Stream for PermitUnlessDeny {
 
         if self.is_first_decision_done() {
             match self.evaluate(results) {
-                Ready(Some(Decision::Deny)) => Ready(Some(
-                    serde_json::from_str(r#"{"decision": "DENY"}"#).unwrap(),
-                )),
-                Ready(Some(Decision::Permit)) => Ready(Some(
-                    serde_json::from_str(r#"{"decision": "PERMIT"}"#).unwrap(),
-                )),
-                Ready(Some(Decision::NotApplicable)) => Ready(Some(
-                    serde_json::from_str(r#"{"decision": "NOT_APPLICABLE"}"#).unwrap(),
-                )),
-                Ready(Some(Decision::Indeterminate)) => Ready(Some(
-                    serde_json::from_str(r#"{"decision": "INDETERMINATE"}"#).unwrap(),
+                Ready(Some(decision)) => Ready(Some(
+                    serde_json::to_value(&decision)
+                        .expect("Failed to serialize AuthorizationDecision to JSON"),
                 )),
                 Ready(None) => Ready(None),
                 Pending => Pending,

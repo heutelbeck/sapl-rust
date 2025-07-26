@@ -320,6 +320,9 @@ impl Ast {
             String(s) => Ok(Val::String(s.clone())),
             BasicFunction(bf) => basic_function(bf, auth_subscription),
             BasicIdentifier(bi) => basic_identifier(bi, auth_subscription),
+            SaplPairs(pairs) => sapl_pairs(pairs, auth_subscription),
+            SaplPair { lhs, rhs } => sapl_pair(lhs, rhs, auth_subscription),
+            Array(a) => array(a, auth_subscription),
             Expr { lhs, op, rhs } => match op {
                 Op::Addition => add(
                     lhs.evaluate_inner(auth_subscription),
@@ -512,7 +515,7 @@ impl Ast {
         }
     }
 
-    pub fn iter(&self) -> ExprIter {
+    pub(crate) fn iter(&self) -> ExprIter {
         let mut stack = VecDeque::new();
         stack.push_back(Arc::new(self.clone()));
         ExprIter { stack }

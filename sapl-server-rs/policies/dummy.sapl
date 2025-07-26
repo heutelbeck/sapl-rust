@@ -4,3 +4,19 @@ permit
 where
     subject == "WILLI";
     time.secondOf(<time.now>) < 20;
+obligation {
+              "suffix" : "HELLO MODIFICATION " + "Ipsum " + action,
+              "lorem" : "ipsum",
+              "message"	: "DENY ! Time < 60",
+	      "actions"   : [
+		{
+			  "type" : "blacken",
+			  "path" : "$.icd11Code",
+			  "discloseLeft": 2
+		},
+		{
+			  "type" : "delete",
+			  "path" : "$.diagnosis"
+		}
+             ]
+           }

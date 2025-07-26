@@ -14,7 +14,7 @@
     under the License.
 */
 
-use crate::Decision;
+use crate::{AuthorizationDecision, Decision};
 use futures::Stream;
 use pin_project_lite::pin_project;
 use std::{
@@ -25,14 +25,14 @@ use std::{
 pin_project! {
     pub struct FirstApplicable {
         #[pin]
-        streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>,
-        decisions: Vec<Poll<Option<Decision>>>,
+        streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
+        decisions: Vec<Poll<Option<AuthorizationDecision>>>,
         first_decision_done: bool,
     }
 }
 
 impl FirstApplicable {
-    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>) -> Self {
+    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>) -> Self {
         FirstApplicable {
             decisions: (0..streams.len()).map(|_| Poll::Pending).collect(),
             streams,
@@ -69,7 +69,10 @@ impl FirstApplicable {
         finished
     }
 
-    fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
+    fn evaluate(
+        &mut self,
+        results: Vec<Poll<Option<AuthorizationDecision>>>,
+    ) -> Poll<Option<AuthorizationDecision>> {
         let mut evaluation_needed = true;
         for (i, result) in results.into_iter().enumerate() {
             if result.is_pending() {
@@ -89,16 +92,18 @@ impl FirstApplicable {
         }
 
         for d in &self.decisions {
-            if *d != Poll::Ready(Some(Decision::NotApplicable)) {
-                return d.clone();
+            if let Poll::Ready(Some(r)) = d {
+                if r.decision != Decision::NotApplicable {
+                    return d.clone();
+                }
             }
         }
-        Poll::Ready(Some(Decision::NotApplicable))
+        Poll::Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
     }
 }
 
 impl Stream for FirstApplicable {
-    type Item = Decision;
+    type Item = AuthorizationDecision;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         //Check all streams, emit the first result after all decisions emit the first
@@ -107,7 +112,8 @@ impl Stream for FirstApplicable {
 
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
-        let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
+        let mut results: Vec<Poll<Option<AuthorizationDecision>>> =
+            Vec::with_capacity(this.decisions.len());
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();

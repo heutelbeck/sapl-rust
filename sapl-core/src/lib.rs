@@ -16,6 +16,7 @@
 
 mod advice;
 mod ast;
+mod authorization_decision;
 pub mod authorization_subscription;
 mod basic_identifier_expression;
 mod decision;
@@ -33,6 +34,7 @@ mod val;
 
 pub use crate::advice::Advice;
 pub use crate::ast::{Ast, Op};
+pub use crate::authorization_decision::AuthorizationDecision;
 pub use crate::decision::Decision;
 pub use crate::import::Import;
 pub use crate::sapl_document::CombiningAlgorithm;

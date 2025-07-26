@@ -69,7 +69,7 @@ transformation = { ("transform" ~ expression) }
 
 advice = { advice_entry }
 
-advice_entry = { "advice" ~ expression }
+advice_entry = _{ "advice" ~ expression }
 
 obligation = { ("obligation" ~ expression) }
 

@@ -14,6 +14,8 @@
     under the License.
 */
 
+use serde_json::Value;
+
 #[derive(Debug, PartialEq)]
 pub enum Val {
     Boolean(bool),
@@ -22,6 +24,7 @@ pub enum Val {
     String(String),
     CompInteger(bool, i32),
     CompFloat(bool, f32),
+    Json(Value),
     None,
 }
 
@@ -47,6 +50,7 @@ impl Clone for Val {
             Val::Integer(i) => Val::Integer(*i),
             Val::CompFloat(b, f) => Val::CompFloat(*b, *f),
             Val::CompInteger(b, i) => Val::CompInteger(*b, *i),
+            Val::Json(j) => Val::Json(j.clone()),
         }
     }
 }

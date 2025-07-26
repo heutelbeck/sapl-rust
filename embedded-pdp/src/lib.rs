@@ -28,8 +28,10 @@ use crate::{
     pdp_config::PdpConfig,
 };
 use futures::Stream;
-use sapl_core::{CombiningAlgorithm, Decision, SaplDocument, parse_sapl_file};
-use serde_json::{Value, json};
+use sapl_core::{
+    AuthorizationDecision, CombiningAlgorithm, Decision, SaplDocument, parse_sapl_file,
+};
+use serde_json::Value;
 use std::{
     fs::{self, read_dir},
     path::{Path, PathBuf},
@@ -85,9 +87,9 @@ impl Pdp {
         use CombiningAlgorithm::*;
 
         // Acquire read locks to access the inner data
-        // TODO check if files gets updated how to handle this?
         let config_guard = self.config.read().expect("Failed to read config lock");
         let policies_guard = self.policies.read().expect("Failed to read policies lock");
+        let auth_sub = Arc::new(auth_sub);
 
         let policy_streams = policies_guard
             .iter()
@@ -158,22 +160,32 @@ where
     I: Iterator<Item = &'a SaplDocument>,
 {
     fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> Value {
+        let mut auth_decison = AuthorizationDecision::default();
         for policy in self {
-            if Decision::Permit == policy.evaluate(auth_sub) {
-                return json!({"decision": "PERMIT"});
+            let result = policy.evaluate(auth_sub);
+            if Decision::Permit == result.decision {
+                return serde_json::to_value(&result)
+                    .expect("Failed to serialize AuthorizationDecision to JSON");
             }
+            auth_decison.collect(result);
         }
 
-        json!({"decision": "DENY"})
+        serde_json::to_value(&auth_decison)
+            .expect("Failed to serialize AuthorizationDecision to JSON")
     }
 
     fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> Value {
+        let mut auth_decison = AuthorizationDecision::new(Decision::Permit);
         for policy in self {
-            if Decision::Deny == policy.evaluate(auth_sub) {
-                return json!({"decision": "DENY"});
+            let result = policy.evaluate(auth_sub);
+            if Decision::Deny == result.decision {
+                return serde_json::to_value(&result)
+                    .expect("Failed to serialize AuthorizationDecision to JSON");
             }
+            auth_decison.collect(result);
         }
 
-        json!({"decision": "PERMIT"})
+        serde_json::to_value(&auth_decison)
+            .expect("Failed to serialize AuthorizationDecision to JSON")
     }
 }

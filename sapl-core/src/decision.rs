@@ -14,19 +14,25 @@
     under the License.
 */
 
-use crate::Entitlement;
-use crate::Val;
+use crate::authorization_subscription::AuthorizationSubscription;
+use crate::{AuthorizationDecision, Entitlement, Policy, Val};
 use futures::Stream;
 use pin_project_lite::pin_project;
+use serde::Serialize;
 use std::fmt::Display;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum Decision {
+    #[serde(rename = "PERMIT")]
     Permit,
+    #[serde(rename = "DENY")]
     Deny,
+    #[serde(rename = "INDETERMINATE")]
     Indeterminate,
+    #[serde(rename = "NOT_APPLICABLE")]
     NotApplicable,
 }
 
@@ -56,16 +62,25 @@ pin_project! {
     pub struct DecisionStream<T> {
         #[pin]
         a: T,
-        entitlement: Entitlement,
+        policy: Policy,
+        auth_subscription: Arc<AuthorizationSubscription>,
     }
 }
 
 impl<T> DecisionStream<T> {
-    pub(super) fn new(a: T, entitlement: Entitlement) -> DecisionStream<T>
+    pub(super) fn new(
+        a: T,
+        policy: Policy,
+        auth_subscription: Arc<AuthorizationSubscription>,
+    ) -> DecisionStream<T>
     where
         T: Stream<Item = Result<Val, String>>,
     {
-        DecisionStream { a, entitlement }
+        DecisionStream {
+            a,
+            policy,
+            auth_subscription,
+        }
     }
 }
 
@@ -73,7 +88,7 @@ impl<T> Stream for DecisionStream<T>
 where
     T: Stream<Item = Result<Val, String>>,
 {
-    type Item = Decision;
+    type Item = AuthorizationDecision;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Condition   |   Decision
@@ -88,15 +103,22 @@ where
 
         match self.as_mut().project().a.poll_next(cx) {
             Ready(Some(val)) => match val {
-                Ok(Val::Boolean(true)) => Ready(Some(Decision::entitlement(&self.entitlement))),
-                Ok(Val::Boolean(false)) => Ready(Some(Decision::NotApplicable)),
+                Ok(Val::Boolean(true)) => Ready(Some(AuthorizationDecision {
+                    decision: Decision::entitlement(&self.policy.entitlement),
+                    resource: None,
+                    obligation: self.policy.evaluate_obligation(&self.auth_subscription),
+                    advice: None,
+                })),
+                Ok(Val::Boolean(false)) => {
+                    Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
+                }
                 Err(e) => {
                     println!("Err evaluate where statement: {e:#?}");
-                    Ready(Some(Decision::Indeterminate))
+                    Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
                 }
                 _ => {
                     println!("Err evaluate where statement: {val:#?}");
-                    Ready(Some(Decision::Indeterminate))
+                    Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
                 }
             },
             Pending => Pending,

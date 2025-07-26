@@ -15,8 +15,11 @@
 */
 
 use futures::Stream;
+use std::sync::Arc;
 
-use crate::{decision::DecisionStream, Entitlement, Val};
+use crate::{
+    Policy, Val, authorization_subscription::AuthorizationSubscription, decision::DecisionStream,
+};
 
 mod once;
 pub use once::{once_decision, once_val};
@@ -91,11 +94,15 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalGe::new(self, other)
     }
 
-    fn eval_to_decision(self, entitlement: Entitlement) -> DecisionStream<Self>
+    fn eval_to_decision(
+        self,
+        policy: Policy,
+        auth_subscription: &Arc<AuthorizationSubscription>,
+    ) -> DecisionStream<Self>
     where
         Self: Sized,
     {
-        DecisionStream::new(self, entitlement)
+        DecisionStream::new(self, policy, auth_subscription.clone())
     }
 
     fn eval_seconds_of(self) -> EvalSecondsOf<Self>

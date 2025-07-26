@@ -14,7 +14,7 @@
     under the License.
 */
 
-use crate::Decision;
+use crate::{AuthorizationDecision, Decision};
 use futures::Stream;
 use pin_project_lite::pin_project;
 use std::{
@@ -25,14 +25,14 @@ use std::{
 pin_project! {
     pub struct DenyOverrides {
         #[pin]
-        streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>,
-        decisions: Vec<Poll<Option<Decision>>>,
+        streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
+        decisions: Vec<Poll<Option<AuthorizationDecision>>>,
         first_decision_done: bool,
     }
 }
 
 impl DenyOverrides {
-    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = Decision> + Send>>>) -> Self {
+    pub fn new(streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>) -> Self {
         DenyOverrides {
             decisions: (0..streams.len()).map(|_| Poll::Pending).collect(),
             streams,
@@ -69,7 +69,10 @@ impl DenyOverrides {
         finished
     }
 
-    fn evaluate(&mut self, results: Vec<Poll<Option<Decision>>>) -> Poll<Option<Decision>> {
+    fn evaluate(
+        &mut self,
+        results: Vec<Poll<Option<AuthorizationDecision>>>,
+    ) -> Poll<Option<AuthorizationDecision>> {
         let mut evaluation_needed = true;
         for (i, result) in results.into_iter().enumerate() {
             if result.is_pending() {
@@ -90,34 +93,41 @@ impl DenyOverrides {
 
         let mut indeterminate = false;
         let mut permit = false;
+        let mut auth_decision = AuthorizationDecision::new(Decision::NotApplicable);
         for d in &self.decisions {
             use Poll::*;
-            match *d {
-                Ready(Some(Decision::Deny)) => return Ready(Some(Decision::Deny)),
-                Ready(Some(Decision::Indeterminate)) => {
-                    indeterminate = true;
+            if let Ready(Some(r)) = d {
+                match r.decision {
+                    Decision::Deny => {
+                        return Ready(Some(r.clone()));
+                    }
+                    Decision::Indeterminate => {
+                        indeterminate = true;
+                    }
+                    Decision::Permit => {
+                        permit = true;
+                        auth_decision.collect(r.clone());
+                    }
+                    _ => {}
                 }
-                Ready(Some(Decision::Permit)) => {
-                    permit = true;
-                }
-                _ => {}
             }
         }
 
         if indeterminate {
-            return Poll::Ready(Some(Decision::Indeterminate));
+            return Poll::Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)));
         }
 
         if permit {
-            return Poll::Ready(Some(Decision::Permit));
+            auth_decision.set_decision(Decision::Permit);
+            return Poll::Ready(Some(auth_decision));
         }
 
-        Poll::Ready(Some(Decision::NotApplicable))
+        Poll::Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
     }
 }
 
 impl Stream for DenyOverrides {
-    type Item = Decision;
+    type Item = AuthorizationDecision;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         //Check all streams, emit the first result after all decisions emit the first
@@ -126,7 +136,8 @@ impl Stream for DenyOverrides {
 
         let mut this = self.as_mut().project();
         let len = this.streams.as_ref().len();
-        let mut results: Vec<Poll<Option<Decision>>> = Vec::with_capacity(this.decisions.len());
+        let mut results: Vec<Poll<Option<AuthorizationDecision>>> =
+            Vec::with_capacity(this.decisions.len());
 
         for i in 0..len {
             let s = this.streams.as_mut().get_mut()[i].as_mut();

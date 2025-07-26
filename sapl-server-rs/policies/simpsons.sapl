@@ -7,3 +7,5 @@ deny
 policy "maggie"
 permit
 	subject == "ms@simpsons.com" & action == "read"
+where
+	time.secondOf(<time.now>) < 30;
