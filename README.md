@@ -1,3 +1,5 @@
+[![ci-build](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml/badge.svg)](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml)
+
 # SAPL Implementation in Rust
 
 ## Prerequisites
