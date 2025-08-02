@@ -14,8 +14,18 @@
 
 [package]
 name = "embedded-pdp"
+description = "Embedded-pdp is an easy-to-use Streaming Attribute Policy Language (SAPL) Policy Decision Point (PDP) in any Rust application"
 version = "0.1.0"
 edition = "2024"
+authors = ["Stefan Weng <stefwe@mailbox.org>"]
+homepage = "https://sapl.io/"
+repository = "https://github.com/FTKeV/sapl-rust"
+documentation = "https://sapl.io/documentation"
+keywords = ["sapl", "abac", "asbac", "XACML", "pdp"]
+categories = ["security"]
+license = "Apache-2.0"
+readme = "README.md"
+rust-version = "1.88"
 
 [dependencies]
 futures = "0.3.31"

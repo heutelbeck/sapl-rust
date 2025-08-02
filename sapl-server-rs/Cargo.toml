@@ -14,8 +14,18 @@
 
 [package]
 name = "sapl-server-rs"
+description = "sapl-server-rs is an lightweight SAPL-based Policy Decision Point (PDP) Server for centrally administrating policies providing request-response and subscription-based authorization as a service through a simple REST style API."
 version = "0.1.0"
 edition = "2024"
+authors = ["Stefan Weng <stefwe@mailbox.org>"]
+homepage = "https://sapl.io/"
+repository = "https://github.com/FTKeV/sapl-rust"
+documentation = "https://sapl.io/documentation"
+keywords = ["sapl", "abac", "asbac", "XACML", "pdp"]
+categories = ["security"]
+license = "Apache-2.0"
+readme = "README.md"
+rust-version = "1.88"
 
 [dependencies]
 embedded-pdp = { version = "0.1.0", path = "../embedded-pdp" }

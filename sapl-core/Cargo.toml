@@ -14,8 +14,18 @@
 
 [package]
 name = "sapl-core"
+description = "SAPL-Core is a rust implementation of the powerful sapl policy language and engine to implement Attribute-based access control (ABAC)"
 version = "0.1.0"
 edition = "2024"
+authors = ["Stefan Weng <stefwe@mailbox.org>"]
+homepage = "https://sapl.io/"
+repository = "https://github.com/FTKeV/sapl-rust"
+documentation = "https://sapl.io/documentation"
+keywords = ["sapl", "abac", "asbac", "XACML"]
+categories = ["security"]
+license = "Apache-2.0"
+readme = "README.md"
+rust-version = "1.88"
 
 [dependencies]
 lazy_static = "1.5.0"
