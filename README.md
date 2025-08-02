@@ -1,6 +1,14 @@
 [![ci-build](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml/badge.svg)](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml)
+<a href="https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/"><img alt="Rustc Version 1.88.0+" src="https://img.shields.io/badge/rustc-1.88.0%2B-lightgrey.svg"/></a>
 
 # SAPL Implementation in Rust
+
+## What is SAPL?
+SAPL is a powerful policy language and engine for implementing ABAC. It comes with development tools for testing, authorization servers, and authoring tools. Framework integrations are available for Spring, Axon, and Vaadin to provide flexible policy enforcement points (PEPs) in your application.
+
+For an explanation, overview, and documentation about the SAPL project look up our [website](https://sapl.io).
+
+This project implements SAPL in Rust and provides an embedded Policy Decision Point(PDP) and a PDP server with a HTTP API.
 
 ## Prerequisites
 
