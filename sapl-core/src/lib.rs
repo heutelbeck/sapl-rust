@@ -14,7 +14,6 @@
     under the License.
 */
 
-mod advice;
 mod ast;
 mod authorization_decision;
 pub mod authorization_subscription;
@@ -32,7 +31,6 @@ pub mod stream_sapl;
 mod transformation;
 mod val;
 
-pub use crate::advice::Advice;
 pub use crate::ast::{Ast, Op};
 pub use crate::authorization_decision::AuthorizationDecision;
 pub use crate::decision::Decision;
