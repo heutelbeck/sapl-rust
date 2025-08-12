@@ -15,40 +15,32 @@
 */
 
 use crate::Val;
-use crate::delay::Delay;
 use chrono::Local;
 use std::{
-    future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::{Duration, Instant},
+    time::Duration,
 };
+use tokio::time::{Interval, MissedTickBehavior, interval};
 use tokio_stream::Stream;
 
 pub struct Time {
-    duration: Duration,
-    delay: Delay,
+    interval: Interval,
 }
 
 impl Default for Time {
     fn default() -> Self {
-        Self {
-            duration: Duration::from_millis(1),
-            delay: Delay {
-                when: Instant::now(),
-            },
-        }
+        let mut interval = interval(Duration::from_millis(1));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        Self { interval }
     }
 }
 
 impl Time {
     pub fn new(update_interval_in_millis: u64) -> Self {
-        Self {
-            duration: Duration::from_millis(update_interval_in_millis),
-            delay: Delay {
-                when: Instant::now(),
-            },
-        }
+        let mut interval = interval(Duration::from_millis(update_interval_in_millis));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        Self { interval }
     }
 
     pub fn now() -> Result<Val, String> {
@@ -63,14 +55,10 @@ impl Stream for Time {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Val, String>>> {
-        match Pin::new(&mut self.delay).poll(cx) {
-            Poll::Ready(_) => {
-                let when = self.delay.when + self.duration;
-                self.delay = Delay { when };
-                //why rfc3339
-                //https://docs.rs/chrono/0.4.19/chrono/struct.DateTime.html#method.parse_from_rfc3339
-                Poll::Ready(Some(Ok(Val::String(Local::now().to_rfc3339()))))
-            }
+        match self.interval.poll_tick(cx) {
+            //why rfc3339
+            //https://docs.rs/chrono/0.4.19/chrono/struct.DateTime.html#method.parse_from_rfc3339
+            Poll::Ready(_) => Poll::Ready(Some(Ok(Val::String(Local::now().to_rfc3339())))),
             Poll::Pending => Poll::Pending,
         }
     }

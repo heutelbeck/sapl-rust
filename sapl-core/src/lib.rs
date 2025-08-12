@@ -19,7 +19,6 @@ mod authorization_decision;
 pub mod authorization_subscription;
 mod basic_identifier_expression;
 mod decision;
-mod delay;
 mod evaluate;
 mod functions;
 mod import;
