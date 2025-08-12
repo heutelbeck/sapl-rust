@@ -16,15 +16,17 @@
 
 //add files to source tree
 mod combining_algorithm;
+mod decision_stream;
 mod file_reader;
 mod pdp_config;
 
 //Re-export types from pest-parser that users need
 pub use crate::file_reader::*;
+use decision_stream::DecisionStream;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
 use crate::{
-    combining_algorithm::{DenyUnlessPermit, PermitUnlessDeny},
+    combining_algorithm::{deny_unless_permit, permit_unless_deny},
     pdp_config::PdpConfig,
 };
 use futures::Stream;
@@ -97,8 +99,8 @@ impl Pdp {
             .collect();
 
         match &config_guard.algorithm {
-            DENY_UNLESS_PERMIT => Box::pin(DenyUnlessPermit::new(policy_streams)),
-            PERMIT_UNLESS_DENY => Box::pin(PermitUnlessDeny::new(policy_streams)),
+            DENY_UNLESS_PERMIT => Box::pin(DecisionStream::new(policy_streams, deny_unless_permit)),
+            PERMIT_UNLESS_DENY => Box::pin(DecisionStream::new(policy_streams, permit_unless_deny)),
             _ => unimplemented!(),
         }
     }

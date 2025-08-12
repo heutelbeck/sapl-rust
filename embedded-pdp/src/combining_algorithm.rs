@@ -14,8 +14,38 @@
     under the License.
 */
 
-mod deny_unless_permit_stream;
-pub(crate) use deny_unless_permit_stream::DenyUnlessPermit;
+use crate::{AuthorizationDecision, Decision};
 
-mod permit_unless_deny_stream;
-pub(crate) use permit_unless_deny_stream::PermitUnlessDeny;
+pub(super) fn deny_unless_permit(
+    decisions: &[Option<AuthorizationDecision>],
+) -> AuthorizationDecision {
+    let mut combined = AuthorizationDecision::new(Decision::Deny);
+
+    for decision in decisions.iter().flatten() {
+        if decision.decision == Decision::Permit {
+            println!("✅ Found Permit decision, returning immediately");
+            return decision.clone();
+        }
+        combined.collect(decision.clone());
+    }
+
+    println!("🔒 No Permit found, returning combined Deny");
+    combined
+}
+
+pub(super) fn permit_unless_deny(
+    decisions: &[Option<AuthorizationDecision>],
+) -> AuthorizationDecision {
+    let mut combined = AuthorizationDecision::new(Decision::Permit);
+
+    for decision in decisions.iter().flatten() {
+        if decision.decision == Decision::Deny {
+            println!("✅ Found Permit decision, returning immediately");
+            return decision.clone();
+        }
+        combined.collect(decision.clone());
+    }
+
+    println!("🔒 No Permit found, returning combined Deny");
+    combined
+}
