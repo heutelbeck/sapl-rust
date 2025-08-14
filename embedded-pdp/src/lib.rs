@@ -15,7 +15,6 @@
 */
 
 //add files to source tree
-mod combining_algorithm;
 mod decision_stream;
 mod file_reader;
 mod pdp_config;
@@ -25,13 +24,11 @@ pub use crate::file_reader::*;
 use decision_stream::DecisionStream;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
-use crate::{
-    combining_algorithm::{deny_unless_permit, permit_unless_deny},
-    pdp_config::PdpConfig,
-};
+use crate::pdp_config::PdpConfig;
 use futures::Stream;
 use sapl_core::{
-    AuthorizationDecision, CombiningAlgorithm, Decision, SaplDocument, parse_sapl_file,
+    AuthorizationDecision, CombiningAlgorithm, SaplDocument, deny_overrides, deny_unless_permit,
+    only_one_applicable, parse_sapl_file, permit_overrides, permit_unless_deny,
 };
 use serde_json::Value;
 use std::{
@@ -71,14 +68,22 @@ impl Pdp {
         // TODO check if files gets updated how to handle this?
         let config_guard = self.config.read().expect("Failed to read config lock");
         let policies_guard = self.policies.read().expect("Failed to read policies lock");
+        let auth_sub = Arc::new(auth_sub);
+
+        let decisions = policies_guard
+            .iter()
+            .map(|p| Some(p.evaluate(&auth_sub)))
+            .collect::<Box<[Option<AuthorizationDecision>]>>();
 
         match &config_guard.algorithm {
-            DENY_UNLESS_PERMIT => policies_guard.iter().deny_unless_permit(&auth_sub),
-            PERMIT_UNLESS_DENY => policies_guard.iter().permit_unless_deny(&auth_sub),
+            DENY_OVERRIDES => decision_to_value(&deny_overrides(&decisions)),
+            DENY_UNLESS_PERMIT => decision_to_value(&deny_unless_permit(&decisions)),
             FIRST_APPLICABLE => {
                 panic!("First-applicable is not allowed on PDP level for document combination!")
             }
-            others => unimplemented!("The pdp alogrithm {:#?} is not yet implemented.", others),
+            ONLY_ONE_APPLICABLE => decision_to_value(&only_one_applicable(&decisions)),
+            PERMIT_OVERRIDES => decision_to_value(&permit_overrides(&decisions)),
+            PERMIT_UNLESS_DENY => decision_to_value(&permit_unless_deny(&decisions)),
         }
     }
 
@@ -99,11 +104,22 @@ impl Pdp {
             .collect();
 
         match &config_guard.algorithm {
+            DENY_OVERRIDES => Box::pin(DecisionStream::new(policy_streams, deny_overrides)),
             DENY_UNLESS_PERMIT => Box::pin(DecisionStream::new(policy_streams, deny_unless_permit)),
+            FIRST_APPLICABLE => {
+                panic!("First-applicable is not allowed on PDP level for document combination!")
+            }
+            ONLY_ONE_APPLICABLE => {
+                Box::pin(DecisionStream::new(policy_streams, only_one_applicable))
+            }
+            PERMIT_OVERRIDES => Box::pin(DecisionStream::new(policy_streams, permit_overrides)),
             PERMIT_UNLESS_DENY => Box::pin(DecisionStream::new(policy_streams, permit_unless_deny)),
-            _ => unimplemented!(),
         }
     }
+}
+
+fn decision_to_value(auth_decision: &AuthorizationDecision) -> Value {
+    serde_json::to_value(auth_decision).expect("Failed to serialize AuthorizationDecision to JSON")
 }
 
 fn recurse(path: impl AsRef<Path>) -> Vec<PathBuf> {
@@ -150,44 +166,4 @@ fn read_all_policies(sapl_files: Vec<PathBuf>) -> Vec<SaplDocument> {
             vec![]
         })
         .collect()
-}
-
-trait PolicyDecisionAlgorithmExt<'a> {
-    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> Value;
-    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> Value;
-}
-
-impl<'a, I> PolicyDecisionAlgorithmExt<'a> for I
-where
-    I: Iterator<Item = &'a SaplDocument>,
-{
-    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> Value {
-        let mut auth_decison = AuthorizationDecision::default();
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Permit == result.decision {
-                return serde_json::to_value(&result)
-                    .expect("Failed to serialize AuthorizationDecision to JSON");
-            }
-            auth_decison.collect(result);
-        }
-
-        serde_json::to_value(&auth_decison)
-            .expect("Failed to serialize AuthorizationDecision to JSON")
-    }
-
-    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> Value {
-        let mut auth_decison = AuthorizationDecision::new(Decision::Permit);
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Deny == result.decision {
-                return serde_json::to_value(&result)
-                    .expect("Failed to serialize AuthorizationDecision to JSON");
-            }
-            auth_decison.collect(result);
-        }
-
-        serde_json::to_value(&auth_decison)
-            .expect("Failed to serialize AuthorizationDecision to JSON")
-    }
 }

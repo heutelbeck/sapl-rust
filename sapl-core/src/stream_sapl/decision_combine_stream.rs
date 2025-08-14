@@ -14,17 +14,16 @@
     under the License.
 */
 
+use crate::AuthorizationDecision;
 use futures::Stream;
 use pin_project_lite::pin_project;
-use sapl_core::AuthorizationDecision;
-use serde_json::Value;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 
 pin_project! {
-    pub struct DecisionStream<F>
+    pub struct DecisionCombinedStream<F>
     where
         F: Fn(&[Option<AuthorizationDecision>]) -> AuthorizationDecision,
     {
@@ -36,7 +35,7 @@ pin_project! {
     }
 }
 
-impl<F> DecisionStream<F>
+impl<F> DecisionCombinedStream<F>
 where
     F: Fn(&[Option<AuthorizationDecision>]) -> AuthorizationDecision + Send,
 {
@@ -54,11 +53,11 @@ where
     }
 }
 
-impl<F> Stream for DecisionStream<F>
+impl<F> Stream for DecisionCombinedStream<F>
 where
     F: Fn(&[Option<AuthorizationDecision>]) -> AuthorizationDecision + Send,
 {
-    type Item = Value;
+    type Item = AuthorizationDecision;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.as_mut().project();
@@ -145,10 +144,7 @@ where
             // 🔧 STEP 3: Combine the decisions
             let combined_decision = (this.combine_fn)(this.decisions);
             println!("📤 Emitting combined decision: {combined_decision:?}");
-            return Poll::Ready(Some(
-                serde_json::to_value(combined_decision)
-                    .expect("Failed to serialize AuthorizationDecision to JSON"),
-            ));
+            return Poll::Ready(Some(combined_decision));
         }
 
         // 🏁 STEP 4: Check if all streams are done

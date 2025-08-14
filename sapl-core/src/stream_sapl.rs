@@ -24,6 +24,9 @@ use crate::{
 mod once;
 pub use once::{once_decision, once_val};
 
+mod decision_combine_stream;
+pub use decision_combine_stream::DecisionCombinedStream;
+
 mod eval_eq;
 pub use eval_eq::EvalEq;
 

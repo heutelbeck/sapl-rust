@@ -15,12 +15,12 @@
 */
 
 use crate::{
-    Ast, AuthorizationDecision, AuthorizationSubscription, CombiningAlgorithm, Decision, Policy,
-    Rule,
+    Ast, AuthorizationDecision, AuthorizationSubscription, CombiningAlgorithm, Policy, Rule,
     sapl_document::combining_algorithm::{
-        DenyOverrides, DenyUnlessPermit, FirstApplicable, OnlyOneApplicable, PermitOverrides,
-        PermitUnlessDeny,
+        deny_overrides, deny_unless_permit, first_applicable, only_one_applicable,
+        permit_overrides, permit_unless_deny,
     },
+    stream_sapl::DecisionCombinedStream,
 };
 use futures::Stream;
 use std::{pin::Pin, sync::Arc};
@@ -79,13 +79,19 @@ impl PolicySet {
     pub fn evaluate(&self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
         use CombiningAlgorithm::*;
 
+        let decisions = self
+            .policies
+            .iter()
+            .map(|p| Some(p.evaluate(auth_sub)))
+            .collect::<Box<[Option<AuthorizationDecision>]>>();
+
         match &self.combining_algorithm {
-            DENY_OVERRIDES => self.policies.iter().deny_overrides(auth_sub),
-            DENY_UNLESS_PERMIT => self.policies.iter().deny_unless_permit(auth_sub),
-            FIRST_APPLICABLE => self.policies.iter().first_applicable(auth_sub),
-            ONLY_ONE_APPLICABLE => self.policies.iter().only_one_applicable(auth_sub),
-            PERMIT_OVERRIDES => self.policies.iter().permit_overrides(auth_sub),
-            PERMIT_UNLESS_DENY => self.policies.iter().permit_unless_deny(auth_sub),
+            DENY_OVERRIDES => deny_overrides(&decisions),
+            DENY_UNLESS_PERMIT => deny_unless_permit(&decisions),
+            FIRST_APPLICABLE => first_applicable(&decisions),
+            ONLY_ONE_APPLICABLE => only_one_applicable(&decisions),
+            PERMIT_OVERRIDES => permit_overrides(&decisions),
+            PERMIT_UNLESS_DENY => permit_unless_deny(&decisions),
         }
     }
 
@@ -102,154 +108,28 @@ impl PolicySet {
             .collect();
 
         match &self.combining_algorithm {
-            DENY_OVERRIDES => Box::pin(DenyOverrides::new(policy_streams)),
-            DENY_UNLESS_PERMIT => Box::pin(DenyUnlessPermit::new(policy_streams)),
-            FIRST_APPLICABLE => Box::pin(FirstApplicable::new(policy_streams)),
-            ONLY_ONE_APPLICABLE => Box::pin(OnlyOneApplicable::new(policy_streams)),
-            PERMIT_OVERRIDES => Box::pin(PermitOverrides::new(policy_streams)),
-            PERMIT_UNLESS_DENY => Box::pin(PermitUnlessDeny::new(policy_streams)),
+            DENY_OVERRIDES => Box::pin(DecisionCombinedStream::new(policy_streams, deny_overrides)),
+            DENY_UNLESS_PERMIT => Box::pin(DecisionCombinedStream::new(
+                policy_streams,
+                deny_unless_permit,
+            )),
+            FIRST_APPLICABLE => Box::pin(DecisionCombinedStream::new(
+                policy_streams,
+                first_applicable,
+            )),
+            ONLY_ONE_APPLICABLE => Box::pin(DecisionCombinedStream::new(
+                policy_streams,
+                only_one_applicable,
+            )),
+            PERMIT_OVERRIDES => Box::pin(DecisionCombinedStream::new(
+                policy_streams,
+                permit_overrides,
+            )),
+            PERMIT_UNLESS_DENY => Box::pin(DecisionCombinedStream::new(
+                policy_streams,
+                permit_unless_deny,
+            )),
         }
-    }
-}
-
-trait PolicySetCombiningAlgorithmExt<'a> {
-    fn deny_overrides(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-    fn first_applicable(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-    fn only_one_applicable(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-    fn permit_overrides(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision;
-}
-
-impl<'a, I> PolicySetCombiningAlgorithmExt<'a> for I
-where
-    I: Iterator<Item = &'a Policy>,
-{
-    fn deny_overrides(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        let mut indeterminate = false;
-        let mut permit = false;
-        let mut auth_decison = AuthorizationDecision::default();
-
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Deny == result.decision {
-                return result;
-            }
-            if Decision::Indeterminate == result.decision {
-                indeterminate = true;
-            }
-            if Decision::Permit == result.decision {
-                auth_decison.collect(result);
-                permit = true;
-            }
-        }
-
-        if indeterminate {
-            return AuthorizationDecision::new(Decision::Indeterminate);
-        }
-
-        if permit {
-            auth_decison.set_decision(Decision::Permit);
-            return auth_decison;
-        }
-
-        AuthorizationDecision::new(Decision::NotApplicable)
-    }
-
-    fn deny_unless_permit(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        let mut auth_decison = AuthorizationDecision::default();
-
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Permit == result.decision {
-                return result;
-            }
-            auth_decison.collect(result);
-        }
-
-        auth_decison
-    }
-
-    fn first_applicable(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::NotApplicable != result.decision {
-                return result;
-            }
-        }
-
-        AuthorizationDecision::new(Decision::NotApplicable)
-    }
-
-    fn only_one_applicable(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        let mut cnt = 0;
-        let mut decision = AuthorizationDecision::new(Decision::NotApplicable);
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            match result.decision {
-                Decision::Indeterminate => {
-                    return AuthorizationDecision::new(Decision::Indeterminate);
-                }
-                Decision::Permit => {
-                    cnt += 1;
-                    decision = result;
-                }
-                Decision::Deny => {
-                    cnt += 1;
-                    decision = result;
-                }
-                Decision::NotApplicable => {}
-            }
-        }
-
-        match cnt {
-            0..=1 => decision,
-            _ => AuthorizationDecision::new(Decision::Indeterminate),
-        }
-    }
-
-    fn permit_overrides(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        let mut auth_decison = AuthorizationDecision::default();
-        let mut indeterminate = false;
-        let mut deny = false;
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Permit == result.decision {
-                return result;
-            }
-            if Decision::Indeterminate == result.decision {
-                indeterminate = true;
-            }
-            if Decision::Deny == result.decision {
-                auth_decison.collect(result);
-                deny = true;
-            }
-        }
-
-        if indeterminate {
-            return AuthorizationDecision::new(Decision::Indeterminate);
-        }
-
-        if deny {
-            auth_decison.set_decision(Decision::Deny);
-            return auth_decison;
-        }
-
-        AuthorizationDecision::new(Decision::NotApplicable)
-    }
-
-    fn permit_unless_deny(self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
-        let mut auth_decison = AuthorizationDecision::new(Decision::Permit);
-
-        for policy in self {
-            let result = policy.evaluate(auth_sub);
-            if Decision::Deny == result.decision {
-                return result;
-            }
-            auth_decison.collect(result);
-        }
-
-        auth_decison
     }
 }
 

@@ -198,9 +198,13 @@ impl Policy {
         match target {
             Err(e) => {
                 println!("Err evaluate target expression: {e:#?}");
-                Box::pin(once_decision(Decision::Indeterminate))
+                Box::pin(once_decision(AuthorizationDecision::new(
+                    Decision::Indeterminate,
+                )))
             }
-            Ok(false) => Box::pin(once_decision(Decision::NotApplicable)),
+            Ok(false) => Box::pin(once_decision(AuthorizationDecision::new(
+                Decision::NotApplicable,
+            ))),
             Ok(true) => Box::pin(
                 self.evaluate_where_as_stream(auth_subscription)
                     .eval_to_decision(self.clone(), auth_subscription),

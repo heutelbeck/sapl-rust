@@ -14,7 +14,7 @@
     under the License.
 */
 
-use crate::{AuthorizationDecision, Decision, Val};
+use crate::{AuthorizationDecision, Val};
 
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -40,18 +40,18 @@ pub fn once_val(value: Val) -> impl Stream<Item = Result<Val, String>> {
 }
 
 // Function that creates a one-shot stream from a given Decision
-pub fn once_decision(value: Decision) -> impl Stream<Item = AuthorizationDecision> {
+pub fn once_decision(value: AuthorizationDecision) -> impl Stream<Item = AuthorizationDecision> {
     pub struct OnceDecisionStream {
-        value: Decision,
+        value: Option<AuthorizationDecision>,
     }
 
     impl Stream for OnceDecisionStream {
         type Item = AuthorizationDecision;
 
-        fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            Poll::Ready(Some(AuthorizationDecision::new(self.value.clone())))
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Poll::Ready(self.value.take())
         }
     }
 
-    OnceDecisionStream { value }
+    OnceDecisionStream { value: Some(value) }
 }

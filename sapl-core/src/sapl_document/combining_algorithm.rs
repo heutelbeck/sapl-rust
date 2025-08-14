@@ -14,28 +14,10 @@
     under the License.
 */
 
+use crate::{AuthorizationDecision, Decision};
 use serde::Deserialize;
 
-mod deny_overrides;
-pub(crate) use deny_overrides::DenyOverrides;
-
-mod deny_unless_permit_stream;
-pub(crate) use deny_unless_permit_stream::DenyUnlessPermit;
-
-mod first_applicable;
-pub(crate) use first_applicable::FirstApplicable;
-
-mod only_one_applicable;
-pub(crate) use only_one_applicable::OnlyOneApplicable;
-
-mod permit_overrides;
-pub(crate) use permit_overrides::PermitOverrides;
-
-mod permit_unless_deny_stream;
-pub(crate) use permit_unless_deny_stream::PermitUnlessDeny;
-
 //https://sapl.io/docs/3.0.0-SNAPSHOT/6_5_CombiningAlgorithm/
-
 #[allow(non_camel_case_types)]
 #[derive(Debug, Default, Deserialize, PartialEq)]
 pub enum CombiningAlgorithm {
@@ -66,4 +48,142 @@ impl CombiningAlgorithm {
             panic!("Input {s} could not be parsed as combining algorithm")
         }
     }
+}
+
+pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut indeterminate = false;
+    let mut permit = false;
+    let mut combined = AuthorizationDecision::new(Decision::Permit);
+
+    for decision in decisions.iter().flatten() {
+        match decision.decision {
+            Decision::Deny => {
+                println!("🔒 Found Deny decision, returning immediately");
+                return decision.clone();
+            }
+            Decision::Indeterminate => {
+                indeterminate = true;
+            }
+            Decision::Permit => {
+                permit = true;
+                combined.collect(decision.clone());
+            }
+            _ => {}
+        }
+    }
+
+    if indeterminate {
+        return AuthorizationDecision::new(Decision::Indeterminate);
+    }
+
+    if permit {
+        println!("✅ Found Permit decision, returning combined Permit");
+        return combined;
+    }
+
+    AuthorizationDecision::new(Decision::NotApplicable)
+}
+
+pub fn deny_unless_permit(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut combined = AuthorizationDecision::new(Decision::Deny);
+
+    for decision in decisions.iter().flatten() {
+        if decision.decision == Decision::Permit {
+            println!("✅ Found Permit decision, returning immediately");
+            return decision.clone();
+        }
+        combined.collect(decision.clone());
+    }
+
+    println!("🔒 No Permit found, returning combined Deny");
+    combined
+}
+
+pub fn first_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    for decision in decisions.iter().flatten() {
+        if decision.decision != Decision::NotApplicable {
+            println!("✅ Found decision, returning immediately");
+            return decision.clone();
+        }
+    }
+
+    println!("🔒 No Decision found, returning NotApplicable");
+    AuthorizationDecision::new(Decision::NotApplicable)
+}
+
+pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut cnt = 0;
+    let mut combined = AuthorizationDecision::new(Decision::NotApplicable);
+
+    for decision in decisions.iter().flatten() {
+        match decision.decision {
+            Decision::Indeterminate => {
+                println!("🔒 Found Indeterminate, returning immediately");
+                return AuthorizationDecision::new(Decision::Indeterminate);
+            }
+            Decision::Permit => {
+                cnt += 1;
+                combined = decision.clone();
+            }
+            Decision::Deny => {
+                cnt += 1;
+                combined = decision.clone();
+            }
+            _ => {}
+        }
+    }
+
+    match cnt {
+        0..=1 => combined,
+        _ => AuthorizationDecision::new(Decision::Indeterminate),
+    }
+}
+
+pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut indeterminate = false;
+    let mut deny = false;
+    let mut combined = AuthorizationDecision::new(Decision::Deny);
+
+    for decision in decisions.iter().flatten() {
+        match decision.decision {
+            Decision::Permit => {
+                println!("✅ Found Permit decision, returning immediately");
+                return decision.clone();
+            }
+            Decision::Indeterminate => {
+                indeterminate = true;
+            }
+            Decision::Deny => {
+                deny = true;
+                combined.collect(decision.clone());
+            }
+            _ => {}
+        }
+    }
+
+    if indeterminate {
+        return AuthorizationDecision::new(Decision::Indeterminate);
+    }
+
+    if deny {
+        println!("✅ Found Deny decision, returning combined Deny");
+        return combined;
+    }
+
+    AuthorizationDecision::new(Decision::NotApplicable)
+}
+
+pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut combined = AuthorizationDecision::new(Decision::Permit);
+
+    for decision in decisions.iter().flatten() {
+        if decision.decision == Decision::Deny {
+            println!("✅ Found Permit decision, returning immediately");
+            return decision.clone();
+        }
+        combined.collect(decision.clone());
+    }
+
+    println!("🔒 No Permit found, returning combined Deny");
+    combined
 }

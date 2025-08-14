@@ -39,6 +39,9 @@ pub use crate::sapl_document::DocumentBody;
 pub use crate::sapl_document::Policy;
 pub use crate::sapl_document::PolicySet;
 pub use crate::sapl_document::SaplDocument;
+pub use crate::sapl_document::combining_algorithm::{
+    deny_overrides, deny_unless_permit, only_one_applicable, permit_overrides, permit_unless_deny,
+};
 pub use crate::schema::Schema;
 pub use crate::transformation::Transformation;
 pub use crate::val::Val;
