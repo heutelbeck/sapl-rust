@@ -103,13 +103,15 @@ where
 
         match self.as_mut().project().a.poll_next(cx) {
             Ready(Some(val)) => match val {
-                Ok(Val::Boolean(true)) => Ready(Some(AuthorizationDecision {
-                    decision: Decision::entitlement(&self.policy.entitlement),
-                    resource: None,
-                    obligation: self.policy.evaluate_obligation(&self.auth_subscription),
-                    advice: None,
-                })),
-                Ok(Val::Boolean(false)) => {
+                Ok(Val::Boolean(true)) | Ok(Val::CompInteger(true, _)) => {
+                    Ready(Some(AuthorizationDecision {
+                        decision: Decision::entitlement(&self.policy.entitlement),
+                        resource: None,
+                        obligation: self.policy.evaluate_obligation(&self.auth_subscription),
+                        advice: None,
+                    }))
+                }
+                Ok(Val::Boolean(false)) | Ok(Val::CompInteger(false, _)) => {
                     Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
                 }
                 Err(e) => {

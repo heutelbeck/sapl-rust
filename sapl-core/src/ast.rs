@@ -727,7 +727,7 @@ mod tests {
 
     use super::*;
 
-    fn parse_expression(input: &str) -> Pairs<Rule> {
+    fn parse_expression(input: &str) -> Pairs<'_, Rule> {
         SaplParser::parse(Rule::expression, input)
             .unwrap_or_else(|e| panic!("Failed to parse '{input}': {e}"))
     }
