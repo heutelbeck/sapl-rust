@@ -45,31 +45,31 @@ impl AuthorizationDecision {
     }
 
     fn add_obligation(&mut self, obligation: Option<Value>) {
-        if obligation.is_some() {
+        if let Some(mut obligation) = obligation {
             if self.obligation.is_none() {
-                self.obligation = obligation;
+                self.obligation = Some(obligation);
                 return;
             }
 
-            if let Some(oblig) = self.obligation.as_mut().unwrap().as_array_mut() {
-                if let Some(new_obligation) = obligation.unwrap().as_array_mut() {
-                    oblig.extend(new_obligation.iter().cloned());
-                }
+            if let Some(oblig) = self.obligation.as_mut().unwrap().as_array_mut()
+                && let Some(new_obligation) = obligation.as_array_mut()
+            {
+                oblig.extend(new_obligation.iter().cloned());
             }
         }
     }
 
     fn add_advice(&mut self, advice: Option<Value>) {
-        if advice.is_some() {
+        if let Some(mut advice) = advice {
             if self.advice.is_none() {
-                self.advice = advice;
+                self.advice = Some(advice);
                 return;
             }
 
-            if let Some(a) = self.advice.as_mut().unwrap().as_array_mut() {
-                if let Some(new_advice) = advice.unwrap().as_array_mut() {
-                    a.extend(new_advice.iter().cloned());
-                }
+            if let Some(a) = self.advice.as_mut().unwrap().as_array_mut()
+                && let Some(new_advice) = advice.as_array_mut()
+            {
+                a.extend(new_advice.iter().cloned());
             }
         }
     }

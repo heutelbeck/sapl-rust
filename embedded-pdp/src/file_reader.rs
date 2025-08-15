@@ -145,11 +145,12 @@ fn recurse(path: impl AsRef<Path>) -> Vec<PathBuf> {
                 return recurse(entry.path());
             }
             if meta.is_file() {
-                if let Some(extension) = entry.path().extension() {
-                    if extension.eq("sapl") {
-                        return vec![entry.path()];
-                    }
+                if let Some(extension) = entry.path().extension()
+                    && extension.eq("sapl")
+                {
+                    return vec![entry.path()];
                 }
+
                 return vec![];
             }
             vec![]

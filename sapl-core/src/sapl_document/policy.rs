@@ -247,10 +247,10 @@ impl Policy {
         &self,
         auth_subscription: &AuthorizationSubscription,
     ) -> Option<Value> {
-        if let Some(obligation) = &self.obligations {
-            if let Ok(Val::Json(obj)) = obligation.evaluate_inner(auth_subscription) {
-                return Some(obj);
-            }
+        if let Some(obligation) = &self.obligations
+            && let Ok(Val::Json(obj)) = obligation.evaluate_inner(auth_subscription)
+        {
+            return Some(obj);
         }
 
         None
