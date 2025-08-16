@@ -108,7 +108,7 @@ where
                         decision: Decision::entitlement(&self.policy.entitlement),
                         resource: None,
                         obligation: self.policy.evaluate_obligation(&self.auth_subscription),
-                        advice: None,
+                        advice: self.policy.evaluate_advice(&self.auth_subscription),
                     }))
                 }
                 Ok(Val::Boolean(false)) | Ok(Val::CompInteger(false, _)) => {

@@ -113,7 +113,7 @@ impl Policy {
                 decision: result,
                 resource: None,
                 obligation: self.evaluate_obligation(auth_subscription),
-                advice: None,
+                advice: self.evaluate_advice(auth_subscription),
             },
             _ => AuthorizationDecision::new(result),
         }
@@ -249,6 +249,19 @@ impl Policy {
     ) -> Option<Value> {
         if let Some(obligation) = &self.obligations
             && let Ok(Val::Json(obj)) = obligation.evaluate_inner(auth_subscription)
+        {
+            return Some(obj);
+        }
+
+        None
+    }
+
+    pub(crate) fn evaluate_advice(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Option<Value> {
+        if let Some(advice) = &self.advice
+            && let Ok(Val::Json(obj)) = advice.evaluate_inner(auth_subscription)
         {
             return Some(obj);
         }
