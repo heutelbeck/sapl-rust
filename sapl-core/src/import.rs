@@ -48,9 +48,9 @@ impl Import {
             }
             Rule::wildcard_import => Wildcard(pair.as_str().to_string()),
             rule => unreachable!(
-            "Sapl::parse expected function_import, library_import or wildcard_import, found {:?}",
-            rule
-        ),
+                "Sapl::parse expected function_import, library_import or wildcard_import, found {:?}",
+                rule
+            ),
         }
     }
 }

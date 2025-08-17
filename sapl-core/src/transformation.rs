@@ -14,8 +14,8 @@
     under the License.
 */
 
-use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::Rule;
+use crate::basic_identifier_expression::BasicIdentifierExpression;
 
 #[derive(Debug)]
 pub enum Transformation {
@@ -39,8 +39,12 @@ impl Transformation {
             Rule::key_step => KeyStep(pair.as_str().to_string()),
             Rule::pairs => SaplPairs(pair.into_inner().map(Transformation::parse).collect()),
             Rule::pair => SaplPair(pair.into_inner().map(Transformation::parse).collect()),
-            Rule::basic_identifier => BasicIdent(pair.into_inner().map(Transformation::parse).collect()),
-            Rule::basic_identifier_expression => BasicIdentExpr(BasicIdentifierExpression::new(pair.as_str())),
+            Rule::basic_identifier => {
+                BasicIdent(pair.into_inner().map(Transformation::parse).collect())
+            }
+            Rule::basic_identifier_expression => {
+                BasicIdentExpr(BasicIdentifierExpression::new(pair.as_str()))
+            }
             Rule::FILTER => Filter(pair.as_str().to_string()),
             Rule::filter_component => Transformation::FilterComponent(pair.as_str().to_string()),
             Rule::addition => Transformation::Concat,

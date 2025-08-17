@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Schema {
-    sapl_id: String,
+    _sapl_id: String,
     expr: Arc<Ast>,
 }
 
@@ -29,7 +29,7 @@ impl Schema {
         let sapl_id = inner_rules.next().unwrap();
 
         Schema {
-            sapl_id: match sapl_id.as_rule() {
+            _sapl_id: match sapl_id.as_rule() {
                 Rule::id => sapl_id.as_str().to_string(),
                 Rule::basic_identifier_expression => {
                     BasicIdentifierExpression::new(sapl_id.as_str()).to_string()
