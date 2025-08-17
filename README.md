@@ -1,4 +1,5 @@
 [![ci-build](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml/badge.svg)](https://github.com/FTKeV/sapl-rust/actions/workflows/ci-build.yml)
+[![Dependency security audit](https://github.com/FTKeV/sapl-rust/actions/workflows/audit.yml/badge.svg)](https://github.com/FTKeV/sapl-rust/actions/workflows/audit.yml)
 <a href="https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/"><img alt="Rustc Version 1.88.0+" src="https://img.shields.io/badge/rustc-1.88.0%2B-lightgrey.svg"/></a>
 
 # SAPL Implementation in Rust
