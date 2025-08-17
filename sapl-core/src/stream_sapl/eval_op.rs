@@ -2,7 +2,7 @@
     Copyright 2025 Stefan Weng
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not
-    use this file except in compliance with the License. You may obtain a copy
+    use self.as_mut().project() file except in compliance with the License. You may obtain a copy
     of the License at
 
         http://www.apache.org/licenses/LICENSE-2.0
@@ -10,19 +10,23 @@
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
     WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-    License for the specific language governing permissions and limitations
+    License for the specific language governing permissions eager_and limitations
     under the License.
 */
 
-use crate::{evaluate::sub, Val};
-use futures::{stream::Fuse, Stream, StreamExt};
+use crate::Val;
+use futures::{Stream, StreamExt, stream::Fuse};
 use pin_project_lite::pin_project;
 use std::pin::Pin;
+use std::result::Result;
 use std::task::{Context, Poll};
 
 pin_project! {
-    /// Stream returned by the [`eval_sub`] method.
-    pub struct EvalSub<T, U> {
+    /// Stream returned by the [`eval_op`] method.
+    pub struct EvalOp<T, U, F>
+    where
+        F: Fn(&Result<Val, String>, &Result<Val, String>) -> Result<Val, String>,
+    {
         #[pin]
         a: Fuse<T>,
         #[pin]
@@ -30,26 +34,33 @@ pin_project! {
         // save the last stream results
         lhs: Result<Val, String>,
         rhs: Result<Val, String>,
+        op_fn: F,
     }
 }
 
-impl<T, U> EvalSub<T, U> {
-    pub(super) fn new(a: T, b: U) -> EvalSub<T, U>
+impl<T, U, F> EvalOp<T, U, F>
+where
+    F: Fn(&Result<Val, String>, &Result<Val, String>) -> Result<Val, String>,
+{
+    pub(super) fn new(a: T, b: U, op_fn: F) -> EvalOp<T, U, F>
     where
         T: Stream<Item = Result<Val, String>>,
         U: Stream<Item = T::Item>,
+        F: Fn(&Result<Val, String>, &Result<Val, String>) -> Result<Val, String>,
     {
-        EvalSub {
+        EvalOp {
             a: a.fuse(),
             b: b.fuse(),
             lhs: Ok(Val::None),
             rhs: Ok(Val::None),
+            op_fn,
         }
     }
 }
 
-impl<T, U> Stream for EvalSub<T, U>
+impl<T, U, F> Stream for EvalOp<T, U, F>
 where
+    F: Fn(&Result<Val, String>, &Result<Val, String>) -> Result<Val, String>,
     T: Stream<Item = Result<Val, String>>,
     U: Stream<Item = T::Item>,
 {
@@ -63,33 +74,28 @@ where
             self.as_mut().project().b.poll_next(cx),
         ) {
             (Ready(Some(val1)), Ready(Some(val2))) => {
-                *self.as_mut().project().lhs = val1.clone();
-                *self.as_mut().project().rhs = val2.clone();
-
-                Ready(Some(sub(val1, val2)))
+                *self.as_mut().project().lhs = val1;
+                *self.as_mut().project().rhs = val2;
             }
             (Ready(Some(val1)), Pending) => {
-                *self.as_mut().project().lhs = val1.clone();
-
-                Ready(Some(sub(val1, self.as_mut().project().rhs.clone())))
+                *self.as_mut().project().lhs = val1;
             }
             (Pending, Ready(Some(val2))) => {
-                *self.as_mut().project().rhs = val2.clone();
-
-                Ready(Some(sub(self.as_mut().project().lhs.clone(), val2)))
+                *self.as_mut().project().rhs = val2;
             }
             (Ready(Some(val1)), Ready(None)) => {
-                *self.as_mut().project().lhs = val1.clone();
-
-                Ready(Some(sub(val1, self.as_mut().project().rhs.clone())))
+                *self.as_mut().project().lhs = val1;
             }
             (Ready(None), Ready(Some(val2))) => {
-                *self.as_mut().project().rhs = val2.clone();
-
-                Ready(Some(sub(self.as_mut().project().lhs.clone(), val2)))
+                *self.as_mut().project().rhs = val2;
             }
-            (Ready(None), Ready(None)) => Ready(None),
-            (_, _) => Pending,
+            (Ready(None), Ready(None)) => return Ready(None),
+            (_, _) => return Pending,
         }
+
+        Ready(Some((self.op_fn)(
+            self.as_ref().project_ref().lhs,
+            self.as_ref().project_ref().rhs,
+        )))
     }
 }

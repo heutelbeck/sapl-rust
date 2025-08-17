@@ -28,6 +28,7 @@ use crate::Rule;
 use crate::Val;
 use crate::ast::Ast;
 use crate::authorization_subscription::AuthorizationSubscription;
+use crate::evaluate::eager_and;
 use crate::stream_sapl::StreamSapl;
 use crate::transformation::Transformation;
 use crate::{once_decision, once_val};
@@ -230,7 +231,7 @@ impl Policy {
 
         fn combine(first: BoxedValStream, streams: &mut Vec<BoxedValStream>) -> BoxedValStream {
             match streams.pop() {
-                Some(s) => Box::pin(first.eval_and(combine(s, streams))),
+                Some(s) => Box::pin(first.eval_op(combine(s, streams), eager_and)),
                 None => Box::pin(first),
             }
         }

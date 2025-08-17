@@ -16,7 +16,7 @@
 
 use crate::Val;
 
-pub(crate) fn eq(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn eq(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
         (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(l == r)),
@@ -28,9 +28,9 @@ pub(crate) fn eq(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<V
         (Ok(CompFloat(l, _)), Ok(Boolean(r))) => Ok(Boolean(l == r)),
         (Ok(Boolean(l)), Ok(CompFloat(r, _))) => Ok(Boolean(l == r)),
         (Ok(CompFloat(l, _)), Ok(CompFloat(r, _))) => Ok(Boolean(l == r)),
-        (Ok(String(l)), Ok(String(r))) => Ok(Boolean(l.eq(&r))),
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
+        (Ok(String(l)), Ok(String(r))) => Ok(Boolean(l.eq(r))),
+        (Err(e), _) => Err(e.clone()),
+        (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
             "Type mismatch. Equal operation expects comparable values, but got: {lhs:#?} and {rhs:#?}"
         )),

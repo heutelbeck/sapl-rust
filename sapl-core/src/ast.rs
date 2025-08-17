@@ -325,65 +325,65 @@ impl Ast {
             Array(a) => array(a, auth_subscription),
             Expr { lhs, op, rhs } => match op {
                 Op::Addition => add(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Comparison => panic!(),
                 Op::Division => div(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::EagerAnd => eager_and(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::EagerOr => eager_or(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Equal => eq(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::ExclusiveOr => xor(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Filter => panic!(),
                 Op::Greater => ge(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::GreaterEqual => ge_eq(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::LazyAnd => panic!(),
                 Op::LazyOr => panic!(),
                 Op::Less => le(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::LessEqual => le_eq(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Modulo => modulo(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Multiplication => mul(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::NotEqual => non_eq(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
                 Op::Regex => panic!(),
                 Op::Subtract => sub(
-                    lhs.evaluate_inner(auth_subscription),
-                    rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(auth_subscription),
+                    &rhs.evaluate_inner(auth_subscription),
                 ),
             },
             other => Err(format!(
@@ -528,33 +528,71 @@ impl Eval for Ast {
         &self,
         auth_subscription: &AuthorizationSubscription,
     ) -> Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>> {
+        use crate::evaluate::*;
+
         match self {
             Ast::Expr { lhs, op, rhs } => match op {
+                Op::Addition => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), add),
+                ),
+                Op::Comparison => panic!(),
+                Op::Division => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), div),
+                ),
                 Op::EagerAnd => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_and(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), eager_and),
+                ),
+                Op::EagerOr => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), eager_or),
                 ),
                 Op::Equal => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_eq(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), eq),
                 ),
-                Op::Less => Box::pin(
+                Op::ExclusiveOr => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_le(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), xor),
                 ),
+                Op::Filter => panic!(),
                 Op::Greater => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_ge(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), ge),
                 ),
-                Op::Addition => Box::pin(
+                Op::GreaterEqual => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_add(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), ge_eq),
                 ),
+                Op::LazyAnd => panic!(),
+                Op::LazyOr => panic!(),
+                Op::Less => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), le),
+                ),
+                Op::LessEqual => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), le_eq),
+                ),
+                Op::Modulo => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), modulo),
+                ),
+                Op::Multiplication => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), mul),
+                ),
+                Op::NotEqual => Box::pin(
+                    lhs.eval(auth_subscription)
+                        .eval_op(rhs.eval(auth_subscription), non_eq),
+                ),
+                Op::Regex => panic!(),
                 Op::Subtract => Box::pin(
                     lhs.eval(auth_subscription)
-                        .eval_sub(rhs.eval(auth_subscription)),
+                        .eval_op(rhs.eval(auth_subscription), sub),
                 ),
-                _ => unimplemented!(),
             },
             Ast::BasicIdentifier(bi) => Box::pin(once_val(
                 crate::evaluate::basic_identifier(bi, auth_subscription).unwrap(),

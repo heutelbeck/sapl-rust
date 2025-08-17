@@ -16,12 +16,7 @@
 
 use embedded_pdp::Pdp;
 use futures::StreamExt;
-use sapl_core::{
-    authorization_subscription::AuthorizationSubscription,
-    parse_sapl_file,
-    pip::time::time_policy_information_point::Time,
-    stream_sapl::{StreamSapl, once_val},
-};
+use sapl_core::{authorization_subscription::AuthorizationSubscription, parse_sapl_file};
 use std::{path::Path, sync::Arc};
 
 #[tokio::main]
@@ -49,11 +44,6 @@ async fn stream_debug_pdp() {
 }
 
 async fn stream_debug() {
-    let stream1 = once_val(sapl_core::Val::Integer(20));
-    let stream = Time::new(1000).eval_seconds_of();
-
-    let mut _new_stream = stream.eval_le(stream1);
-
     let auth_sub = Arc::new(AuthorizationSubscription::new_example_subscription1());
 
     let sapl_document =

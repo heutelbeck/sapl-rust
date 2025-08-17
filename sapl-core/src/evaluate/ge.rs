@@ -16,28 +16,28 @@
 
 use crate::Val;
 
-pub(crate) fn ge(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn ge(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
         (Ok(Boolean(l)), Ok(Boolean(r))) => Ok(Boolean(l & !r)),
-        (Ok(Integer(l)), Ok(Integer(r))) => Ok(CompInteger(l > r, r)),
+        (Ok(Integer(l)), Ok(Integer(r))) => Ok(CompInteger(l > r, *r)),
         (Ok(CompInteger(eval, l)), Ok(Integer(r))) => {
-            if eval {
-                Ok(CompInteger(l > r, r))
+            if *eval {
+                Ok(CompInteger(l > r, *r))
             } else {
                 Ok(Boolean(false))
             }
         }
-        (Ok(Float(l)), Ok(Float(r))) => Ok(CompFloat(l > r, r)),
+        (Ok(Float(l)), Ok(Float(r))) => Ok(CompFloat(l > r, *r)),
         (Ok(CompFloat(eval, l)), Ok(Float(r))) => {
-            if eval {
-                Ok(CompFloat(l > r, r))
+            if *eval {
+                Ok(CompFloat(l > r, *r))
             } else {
                 Ok(Boolean(false))
             }
         }
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
+        (Err(e), _) => Err(e.clone()),
+        (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
             "Type mismatch. Greater operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),

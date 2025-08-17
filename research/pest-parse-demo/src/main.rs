@@ -14,13 +14,7 @@
     under the License.
 */
 
-use sapl_core::{
-    Val,
-    authorization_subscription::AuthorizationSubscription,
-    parse_sapl_file,
-    pip::time::time_policy_information_point::Time,
-    stream_sapl::{StreamSapl, once_val},
-};
+use sapl_core::{authorization_subscription::AuthorizationSubscription, parse_sapl_file};
 use std::sync::Arc;
 use tokio_stream::StreamExt;
 
@@ -38,12 +32,6 @@ async fn async_demo_part() {
     let mut p = time_policy.unwrap().evaluate_as_stream(&Arc::new(
         AuthorizationSubscription::new_example_subscription1(),
     ));
-
-    let o = once_val(Val::Integer(20));
-
-    let b = Time::default().eval_seconds_of();
-
-    let mut _b = o.eval_le(b);
 
     while let Some(v) = p.next().await {
         println!("evaluation stream: {v:#?}");

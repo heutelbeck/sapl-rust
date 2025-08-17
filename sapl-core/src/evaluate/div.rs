@@ -16,27 +16,27 @@
 
 use crate::Val;
 
-pub(crate) fn div(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn div(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
 
     match (lhs, rhs) {
         (Ok(Integer(l)), Ok(Integer(r))) => {
-            if r == 0 {
+            if *r == 0 {
                 return Err("Divide by zero".to_string());
             };
-            if l == i32::MIN && r == -1 {
+            if *l == i32::MIN && *r == -1 {
                 return Err("Integer overflow".to_string());
             };
             Ok(Val::Integer(l / r))
         }
         (Ok(Float(l)), Ok(Float(r))) => {
-            if r == 0.0 {
+            if *r == 0.0 {
                 return Err("Divide by zero".to_string());
             };
             Ok(Val::Float(l / r))
         }
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
+        (Err(e), _) => Err(e.clone()),
+        (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
             "Type mismatch. Division operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),

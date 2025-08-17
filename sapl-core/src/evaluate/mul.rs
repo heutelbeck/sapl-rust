@@ -16,13 +16,13 @@
 
 use crate::Val;
 
-pub(crate) fn mul(lhs: Result<Val, String>, rhs: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn mul(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Result<Val, String> {
     use crate::Val::*;
     match (lhs, rhs) {
-        (Ok(Integer(l)), Ok(Integer(r))) => Ok(Integer(l.saturating_mul(r))),
+        (Ok(Integer(l)), Ok(Integer(r))) => Ok(Integer(l.saturating_mul(*r))),
         (Ok(Float(l)), Ok(Float(r))) => Ok(Float(l * r)),
-        (Err(e), _) => Err(e),
-        (_, Err(e)) => Err(e),
+        (Err(e), _) => Err(e.clone()),
+        (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
             "Type mismatch. Multiplication operation expects decimal value, but got: {lhs:#?} and {rhs:#?}"
         )),
