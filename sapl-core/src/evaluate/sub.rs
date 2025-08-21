@@ -28,3 +28,51 @@ pub(crate) fn sub(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sub_integer() {
+        let lhs = Ok(Val::Integer(44));
+        let rhs = Ok(Val::Integer(2));
+
+        assert_eq!(Ok(Val::Integer(42)), sub(&lhs, &rhs));
+    }
+
+    #[test]
+    fn sub_float() {
+        let lhs = Ok(Val::Float(0.25));
+        let rhs = Ok(Val::Float(0.125));
+
+        assert_eq!(Ok(Val::Float(0.125)), sub(&lhs, &rhs));
+    }
+
+    #[test]
+    fn sub_lhs_error() {
+        let lhs = Err("Fault lhs".to_string());
+        let rhs = Ok(Val::String("something".to_string()));
+
+        assert_eq!(Err("Fault lhs".to_string()), sub(&lhs, &rhs));
+    }
+
+    #[test]
+    fn sub_rhs_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Err("Fault rhs".to_string());
+
+        assert_eq!(Err("Fault rhs".to_string()), sub(&lhs, &rhs));
+    }
+
+    #[test]
+    fn sub_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Ok(Val::Integer(42));
+
+        let err = Err(
+            "Type mismatch. Subtraction operation expects decimal values, but got: Ok(\n    String(\n        \"something\",\n    ),\n) and Ok(\n    Integer(\n        42,\n    ),\n)".to_string(),
+        );
+        assert_eq!(err, sub(&lhs, &rhs));
+    }
+}
