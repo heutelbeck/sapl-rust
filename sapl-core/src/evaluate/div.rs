@@ -24,7 +24,7 @@ pub(crate) fn div(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
             if *r == 0 {
                 return Err("Divide by zero".to_string());
             };
-            if *l == i32::MIN && *r == -1 {
+            if *l == i64::MIN && *r == -1 {
                 return Err("Integer overflow".to_string());
             };
             Ok(Val::Integer(l / r))

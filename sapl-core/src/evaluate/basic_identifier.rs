@@ -47,9 +47,9 @@ pub(crate) fn basic_identifier(
         Value::String(s) => Ok(Val::String(s.clone())),
         Value::Number(n) => {
             if n.is_i64() {
-                Ok(Val::Integer(n.as_i64().unwrap() as i32))
+                Ok(Val::Integer(n.as_i64().unwrap()))
             } else {
-                Ok(Val::Float(n.as_f64().unwrap() as f32))
+                Ok(Val::Float(n.as_f64().unwrap()))
             }
         }
         Value::Bool(b) => Ok(Val::Boolean(b)),
