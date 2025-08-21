@@ -33,3 +33,59 @@ pub(crate) fn add(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_integer() {
+        let lhs = Ok(Val::Integer(40));
+        let rhs = Ok(Val::Integer(2));
+
+        assert_eq!(Ok(Val::Integer(42)), add(&lhs, &rhs));
+    }
+
+    #[test]
+    fn add_float() {
+        let lhs = Ok(Val::Float(0.1));
+        let rhs = Ok(Val::Float(0.1));
+
+        assert_eq!(Ok(Val::Float(0.2)), add(&lhs, &rhs));
+    }
+
+    #[test]
+    fn add_string() {
+        let lhs = Ok(Val::String("***".to_string()));
+        let rhs = Ok(Val::String("something".to_string()));
+
+        assert_eq!(Ok(Val::String("***something".to_string())), add(&lhs, &rhs));
+    }
+
+    #[test]
+    fn add_lhs_error() {
+        let lhs = Err("Fault lhs".to_string());
+        let rhs = Ok(Val::String("something".to_string()));
+
+        assert_eq!(Err("Fault lhs".to_string()), add(&lhs, &rhs));
+    }
+
+    #[test]
+    fn add_rhs_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Err("Fault rhs".to_string());
+
+        assert_eq!(Err("Fault rhs".to_string()), add(&lhs, &rhs));
+    }
+
+    #[test]
+    fn add_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Ok(Val::Integer(42));
+
+        let err = Err(
+            "Type mismatch. Addition operation expects decimal values, but got: Ok(\n    String(\n        \"something\",\n    ),\n) and Ok(\n    Integer(\n        42,\n    ),\n)".to_string(),
+        );
+        assert_eq!(err, add(&lhs, &rhs));
+    }
+}
