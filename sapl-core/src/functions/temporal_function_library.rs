@@ -21,7 +21,7 @@ use crate::Val;
 pub(crate) fn second_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
         Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
-            Ok(dt) => Ok(Val::Integer(dt.second().try_into().unwrap_or(0))),
+            Ok(dt) => Ok(Val::Integer(dt.second().into())),
             Err(e) => Err(e.to_string()),
         },
         other => Err(format!(
@@ -33,7 +33,7 @@ pub(crate) fn second_of(iso_date_time: Result<Val, String>) -> Result<Val, Strin
 pub(crate) fn minute_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
         Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
-            Ok(dt) => Ok(Val::Integer(dt.minute().try_into().unwrap_or(0))),
+            Ok(dt) => Ok(Val::Integer(dt.minute().into())),
             Err(e) => Err(e.to_string()),
         },
         other => Err(format!(
@@ -45,7 +45,7 @@ pub(crate) fn minute_of(iso_date_time: Result<Val, String>) -> Result<Val, Strin
 pub(crate) fn hour_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
         Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
-            Ok(dt) => Ok(Val::Integer(dt.hour().try_into().unwrap_or(0))),
+            Ok(dt) => Ok(Val::Integer(dt.hour().into())),
             Err(e) => Err(e.to_string()),
         },
         other => Err(format!(
@@ -57,7 +57,7 @@ pub(crate) fn hour_of(iso_date_time: Result<Val, String>) -> Result<Val, String>
 pub(crate) fn week_of_year(iso_date_time: Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
         Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
-            Ok(dt) => Ok(Val::Integer(dt.iso_week().week().try_into().unwrap_or(1))),
+            Ok(dt) => Ok(Val::Integer(dt.iso_week().week().into())),
             Err(e) => Err(e.to_string()),
         },
         other => Err(format!(
@@ -69,7 +69,7 @@ pub(crate) fn week_of_year(iso_date_time: Result<Val, String>) -> Result<Val, St
 pub(crate) fn day_of_year(iso_date_time: Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
         Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
-            Ok(dt) => Ok(Val::Integer(dt.ordinal().try_into().unwrap_or(1))),
+            Ok(dt) => Ok(Val::Integer(dt.ordinal().into())),
             Err(e) => Err(e.to_string()),
         },
         other => Err(format!(
