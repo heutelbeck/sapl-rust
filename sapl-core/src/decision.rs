@@ -106,7 +106,7 @@ where
                 Ok(Val::Boolean(true)) | Ok(Val::CompInteger(true, _)) => {
                     Ready(Some(AuthorizationDecision {
                         decision: Decision::entitlement(&self.policy.entitlement),
-                        resource: None,
+                        resource: self.policy.evaluate_transformation(&self.auth_subscription),
                         obligation: self.policy.evaluate_obligation(&self.auth_subscription),
                         advice: self.policy.evaluate_advice(&self.auth_subscription),
                     }))
