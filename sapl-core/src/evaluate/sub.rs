@@ -32,6 +32,7 @@ pub(crate) fn sub(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::dec;
 
     #[test]
     fn sub_integer() {
@@ -43,10 +44,10 @@ mod tests {
 
     #[test]
     fn sub_float() {
-        let lhs = Ok(Val::Float(0.25));
-        let rhs = Ok(Val::Float(0.125));
+        let lhs = Ok(Val::Float(dec!(0.3)));
+        let rhs = Ok(Val::Float(dec!(0.1)));
 
-        assert_eq!(Ok(Val::Float(0.125)), sub(&lhs, &rhs));
+        assert_eq!(Ok(Val::Float(dec!(0.2))), sub(&lhs, &rhs));
     }
 
     #[test]

@@ -26,7 +26,7 @@ pub(crate) fn modulo(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Re
             Ok(Integer(l % r))
         }
         (Ok(Float(l)), Ok(Float(r))) => {
-            if *r == 0.0 {
+            if r.is_zero() {
                 return Err("Divided by zero".to_string());
             }
             Ok(Float(l % r))

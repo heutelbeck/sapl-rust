@@ -37,6 +37,7 @@ pub(crate) fn add(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::dec;
 
     #[test]
     fn add_integer() {
@@ -48,10 +49,10 @@ mod tests {
 
     #[test]
     fn add_float() {
-        let lhs = Ok(Val::Float(0.1));
-        let rhs = Ok(Val::Float(0.1));
+        let lhs = Ok(Val::Float(dec!(0.1)));
+        let rhs = Ok(Val::Float(dec!(0.1)));
 
-        assert_eq!(Ok(Val::Float(0.2)), add(&lhs, &rhs));
+        assert_eq!(Ok(Val::Float(dec!(0.2))), add(&lhs, &rhs));
     }
 
     #[test]

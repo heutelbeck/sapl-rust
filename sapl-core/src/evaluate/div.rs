@@ -30,7 +30,7 @@ pub(crate) fn div(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
             Ok(Val::Integer(l / r))
         }
         (Ok(Float(l)), Ok(Float(r))) => {
-            if *r == 0.0 {
+            if r.is_zero() {
                 return Err("Divide by zero".to_string());
             };
             Ok(Val::Float(l / r))

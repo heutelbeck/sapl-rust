@@ -14,16 +14,18 @@
     under the License.
 */
 
-use serde_json::{Value, json};
+use rust_decimal::Decimal;
+use serde_json::{Number, Value, json};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub enum Val {
     Boolean(bool),
     Integer(i64),
-    Float(f64),
+    Float(Decimal),
     String(String),
     CompInteger(bool, i64),
-    CompFloat(bool, f64),
+    CompFloat(bool, Decimal),
     Json(Value),
     None,
 }
@@ -31,7 +33,12 @@ pub enum Val {
 impl Val {
     pub fn to_value(&self) -> Value {
         let val = match self {
-            Val::Float(f) => serde_json::to_value(*f),
+            Val::Float(f) => {
+                let number = Number::from_str(&f.to_string());
+                Ok(Value::Number(
+                    number.expect("Failed to convert rust_decimal to JSON Number"),
+                ))
+            }
             Val::None => Ok(json!(null)),
             Val::String(s) => serde_json::to_value(s),
             Val::Boolean(b) => serde_json::to_value(*b),
@@ -67,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_to_value_float() {
-        let val = Val::Float(1.14);
+        let val = Val::Float(Decimal::new(114, 2));
         let result = val.to_value();
 
         assert_eq!(result, json!(1.14));
@@ -148,10 +155,10 @@ mod tests {
 
     #[test]
     fn test_to_value_comp_float_true() {
-        check_comp_float(true, 1.14);
-        check_comp_float(false, 1.718);
+        check_comp_float(true, Decimal::new(114, 2));
+        check_comp_float(false, Decimal::new(1718, 3));
 
-        fn check_comp_float(b: bool, f: f64) {
+        fn check_comp_float(b: bool, f: Decimal) {
             let val = Val::CompFloat(b, f);
             let result = val.to_value();
 
@@ -243,15 +250,15 @@ mod tests {
 
     #[test]
     fn test_clone_float() {
-        let original = Val::Float(1.14);
+        let original = Val::Float(Decimal::new(114, 2));
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
 
         // Extract values for direct comparison
         if let (Val::Float(orig_val), Val::Float(clone_val)) = (&original, &cloned) {
-            assert_eq!(*orig_val, 1.14);
-            assert_eq!(*clone_val, 1.14);
+            assert_eq!(*orig_val, Decimal::new(114, 2));
+            assert_eq!(*clone_val, Decimal::new(114, 2));
             assert_eq!(orig_val, clone_val);
         }
     }
@@ -315,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_clone_comp_float() {
-        let original = Val::CompFloat(true, 1.718);
+        let original = Val::CompFloat(true, Decimal::new(1718, 3));
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -327,9 +334,9 @@ mod tests {
             assert_eq!(orig_b, clone_b);
             assert_eq!(orig_f, clone_f);
             assert!(*orig_b);
-            assert_eq!(*orig_f, 1.718);
+            assert_eq!(*orig_f, Decimal::new(1718, 3));
             assert!(*clone_b);
-            assert_eq!(*clone_f, 1.718);
+            assert_eq!(*clone_f, Decimal::new(1718, 3));
         }
     }
 
@@ -403,30 +410,10 @@ mod tests {
 
     #[test]
     fn test_clone_extreme_values() {
-        // Test with extreme float values
-        let original_inf = Val::Float(f64::INFINITY);
-        let cloned_inf = original_inf.clone();
+        let original = Val::Integer(i64::MAX);
+        let cloned = original.clone();
 
-        if let (Val::Float(orig), Val::Float(clone)) = (&original_inf, &cloned_inf) {
-            assert!(orig.is_infinite());
-            assert!(clone.is_infinite());
-            assert_eq!(orig.is_sign_positive(), clone.is_sign_positive());
-        }
-
-        // Test with NaN
-        let original_nan = Val::Float(f64::NAN);
-        let cloned_nan = original_nan.clone();
-
-        if let (Val::Float(orig), Val::Float(clone)) = (&original_nan, &cloned_nan) {
-            assert!(orig.is_nan());
-            assert!(clone.is_nan());
-        }
-
-        // Test with extreme integer values
-        let original_max = Val::Integer(i64::MAX);
-        let cloned_max = original_max.clone();
-
-        if let (Val::Integer(orig), Val::Integer(clone)) = (&original_max, &cloned_max) {
+        if let (Val::Integer(orig), Val::Integer(clone)) = (&original, &cloned) {
             assert_eq!(orig, clone);
             assert_eq!(*orig, i64::MAX);
             assert_eq!(*clone, i64::MAX);

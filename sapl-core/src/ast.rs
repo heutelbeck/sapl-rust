@@ -25,6 +25,7 @@ use crate::once_val;
 use crate::pip::Time;
 
 use futures::Stream;
+use rust_decimal::Decimal;
 use std::collections::VecDeque;
 use std::fmt::Display;
 use std::pin::Pin;
@@ -61,7 +62,7 @@ pub enum Ast {
     Subscript(Arc<Ast>),
     Boolean(bool),
     Integer(i64),
-    Float(f64),
+    Float(Decimal),
     SignedNumber(String),
     String(String),
     Id(String),
