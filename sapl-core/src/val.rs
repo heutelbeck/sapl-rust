@@ -14,7 +14,7 @@
     under the License.
 */
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 #[derive(Debug, PartialEq)]
 pub enum Val {
@@ -29,14 +29,19 @@ pub enum Val {
 }
 
 impl Val {
-    pub fn is_number(&self) -> bool {
-        matches!(self, Val::Integer(_) | Val::Float(_))
-    }
-    pub fn is_integer(&self) -> bool {
-        matches!(self, Val::Integer(_))
-    }
-    pub fn is_float(&self) -> bool {
-        matches!(self, Val::Float(_))
+    pub fn to_value(&self) -> Value {
+        let val = match self {
+            Val::Float(f) => serde_json::to_value(*f),
+            Val::None => Ok(json!(null)),
+            Val::String(s) => serde_json::to_value(s),
+            Val::Boolean(b) => serde_json::to_value(*b),
+            Val::Integer(i) => serde_json::to_value(*i),
+            Val::CompFloat(b, _) => serde_json::to_value(*b),
+            Val::CompInteger(b, _) => serde_json::to_value(*b),
+            Val::Json(j) => Ok(j.clone()),
+        };
+
+        val.expect("Failed to serialze Val to JSON")
     }
 }
 

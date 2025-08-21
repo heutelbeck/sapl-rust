@@ -27,7 +27,6 @@ mod sapl_document;
 mod schema;
 mod simplify;
 pub mod stream_sapl;
-mod transformation;
 mod val;
 
 pub use crate::ast::{Ast, Op};
@@ -43,7 +42,6 @@ pub use crate::sapl_document::combining_algorithm::{
     deny_overrides, deny_unless_permit, only_one_applicable, permit_overrides, permit_unless_deny,
 };
 pub use crate::schema::Schema;
-pub use crate::transformation::Transformation;
 pub use crate::val::Val;
 
 use authorization_subscription::AuthorizationSubscription;

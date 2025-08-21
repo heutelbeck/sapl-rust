@@ -30,7 +30,6 @@ use crate::ast::Ast;
 use crate::authorization_subscription::AuthorizationSubscription;
 use crate::evaluate::eager_and;
 use crate::stream_sapl::StreamSapl;
-use crate::transformation::Transformation;
 use crate::{once_decision, once_val};
 
 #[derive(Debug, Default, Clone)]
@@ -41,7 +40,7 @@ pub struct Policy {
     where_statements: Option<Arc<Vec<Ast>>>,
     obligations: Option<Arc<Ast>>,
     advice: Option<Arc<Ast>>,
-    transformation: Option<Arc<Vec<Transformation>>>,
+    transformation: Option<Arc<Ast>>,
 }
 
 impl Policy {
@@ -74,12 +73,7 @@ impl Policy {
                     policy.advice = Some(Arc::new(Ast::parse(pair.clone().into_inner())));
                 }
                 Rule::transformation => {
-                    policy.transformation = Some(Arc::new(
-                        pair.clone()
-                            .into_inner()
-                            .map(Transformation::parse)
-                            .collect(),
-                    ));
+                    policy.transformation = Some(Arc::new(Ast::parse(pair.clone().into_inner())));
                 }
                 rule => {
                     unreachable!("Sapl::parse expected policy_name or entitlement, found {rule:?}")
@@ -112,7 +106,7 @@ impl Policy {
         match result {
             Decision::Permit | Decision::Deny => AuthorizationDecision {
                 decision: result,
-                resource: None,
+                resource: self.evaluate_transformation(auth_subscription),
                 obligation: self.evaluate_obligation(auth_subscription),
                 advice: self.evaluate_advice(auth_subscription),
             },
@@ -266,6 +260,19 @@ impl Policy {
         {
             return Some(obj);
         }
+
+        None
+    }
+
+    pub(crate) fn evaluate_transformation(
+        &self,
+        auth_subscription: &AuthorizationSubscription,
+    ) -> Option<Value> {
+        if let Some(transform) = &self.transformation
+            && let Ok(result) = transform.evaluate_inner(auth_subscription)
+        {
+            return Some(result.to_value());
+        };
 
         None
     }
