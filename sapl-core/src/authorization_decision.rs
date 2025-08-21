@@ -42,6 +42,7 @@ impl AuthorizationDecision {
     pub fn collect(&mut self, auth_decision: AuthorizationDecision) {
         self.add_obligation(auth_decision.obligation);
         self.add_advice(auth_decision.advice);
+        self.add_resource(auth_decision.resource);
     }
 
     fn add_obligation(&mut self, obligation: Option<Value>) {
@@ -70,6 +71,20 @@ impl AuthorizationDecision {
                 && let Some(new_advice) = advice.as_array_mut()
             {
                 a.extend(new_advice.iter().cloned());
+            }
+        }
+    }
+
+    fn add_resource(&mut self, resource: Option<Value>) {
+        if resource.is_some() {
+            match self.resource {
+                Some(_) => {
+                    self.resource = None;
+                    self.decision = Decision::Deny;
+                }
+                None => {
+                    self.resource = resource;
+                }
             }
         }
     }

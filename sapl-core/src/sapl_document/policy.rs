@@ -104,9 +104,15 @@ impl Policy {
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
         let result = self.evaluate_decison(auth_subscription);
         match result {
-            Decision::Permit | Decision::Deny => AuthorizationDecision {
+            Decision::Permit => AuthorizationDecision {
                 decision: result,
                 resource: self.evaluate_transformation(auth_subscription),
+                obligation: self.evaluate_obligation(auth_subscription),
+                advice: self.evaluate_advice(auth_subscription),
+            },
+            Decision::Deny => AuthorizationDecision {
+                decision: result,
+                resource: None,
                 obligation: self.evaluate_obligation(auth_subscription),
                 advice: self.evaluate_advice(auth_subscription),
             },
