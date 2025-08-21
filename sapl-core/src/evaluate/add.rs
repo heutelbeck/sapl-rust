@@ -21,6 +21,11 @@ pub(crate) fn add(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
     match (lhs, rhs) {
         (Ok(Integer(l)), Ok(Integer(r))) => Ok(Integer(l.saturating_add(*r))),
         (Ok(Float(l)), Ok(Float(r))) => Ok(Float(l + r)),
+        (Ok(String(l)), Ok(String(r))) => {
+            let mut result = std::string::String::from(l);
+            result.push_str(r);
+            Ok(String(result))
+        }
         (Err(e), _) => Err(e.clone()),
         (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
