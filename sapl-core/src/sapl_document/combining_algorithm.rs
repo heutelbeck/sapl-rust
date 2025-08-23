@@ -178,12 +178,12 @@ pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> Author
 
     for decision in decisions.iter().flatten() {
         if decision.decision == Decision::Deny {
-            println!("✅ Found Permit decision, returning immediately");
+            println!("✅ Found Deny decision, returning immediately");
             return decision.clone();
         }
         combined.collect(decision.clone());
     }
 
-    println!("🔒 No Permit found, returning combined Deny");
+    println!("🔒 No Deny found, returning combined Permit");
     combined
 }
