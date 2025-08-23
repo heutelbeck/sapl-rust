@@ -28,3 +28,52 @@ pub(crate) fn mul(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Resul
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::dec;
+
+    #[test]
+    fn mul_integer() {
+        let lhs = Ok(Val::Integer(21));
+        let rhs = Ok(Val::Integer(2));
+
+        assert_eq!(Ok(Val::Integer(42)), mul(&lhs, &rhs));
+    }
+
+    #[test]
+    fn mul_float() {
+        let lhs = Ok(Val::Float(dec!(0.3)));
+        let rhs = Ok(Val::Float(dec!(2)));
+
+        assert_eq!(Ok(Val::Float(dec!(0.6))), mul(&lhs, &rhs));
+    }
+
+    #[test]
+    fn mul_lhs_error() {
+        let lhs = Err("Fault lhs".to_string());
+        let rhs = Ok(Val::String("something".to_string()));
+
+        assert_eq!(Err("Fault lhs".to_string()), mul(&lhs, &rhs));
+    }
+
+    #[test]
+    fn mul_rhs_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Err("Fault rhs".to_string());
+
+        assert_eq!(Err("Fault rhs".to_string()), mul(&lhs, &rhs));
+    }
+
+    #[test]
+    fn mul_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Ok(Val::Integer(42));
+
+        let err = Err(
+            "Type mismatch. Multiplication operation expects decimal value, but got: Ok(\n    String(\n        \"something\",\n    ),\n) and Ok(\n    Integer(\n        42,\n    ),\n)".to_string(),
+        );
+        assert_eq!(err, mul(&lhs, &rhs));
+    }
+}
