@@ -24,6 +24,7 @@ use crate::{
     stream_sapl::DecisionCombinedStream,
 };
 use futures::Stream;
+use log::error;
 use std::{pin::Pin, sync::Arc};
 
 #[derive(Debug, Default)]
@@ -82,7 +83,7 @@ impl PolicySet {
 
         match self.evaluate_target_expr(auth_sub) {
             Err(e) => {
-                println!("Err evaluate target expression: {e:#?}");
+                error!("Err evaluate target expression: {e:#?}");
                 AuthorizationDecision::new(Decision::Indeterminate)
             }
             Ok(false) => AuthorizationDecision::new(Decision::NotApplicable),
@@ -113,7 +114,7 @@ impl PolicySet {
 
         match self.evaluate_target_expr(auth_sub) {
             Err(e) => {
-                println!("Err evaluate target expression: {e:#?}");
+                error!("Err evaluate target expression: {e:#?}");
                 Box::pin(once_decision(AuthorizationDecision::new(
                     Decision::Indeterminate,
                 )))

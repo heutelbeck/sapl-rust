@@ -15,6 +15,7 @@
 */
 
 use crate::{AuthorizationDecision, Decision};
+use log::debug;
 use serde::Deserialize;
 
 //https://sapl.io/docs/3.0.0-SNAPSHOT/6_5_CombiningAlgorithm/
@@ -58,7 +59,7 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
     for decision in decisions.iter().flatten() {
         match decision.decision {
             Decision::Deny => {
-                println!("🔒 Found Deny decision, returning immediately");
+                debug!("🔒 Found Deny decision, returning immediately");
                 return decision.clone();
             }
             Decision::Indeterminate => {
@@ -77,7 +78,7 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
     }
 
     if permit {
-        println!("✅ Found Permit decision, returning combined Permit");
+        debug!("✅ Found Permit decision, returning combined Permit");
         return combined;
     }
 
@@ -89,25 +90,25 @@ pub fn deny_unless_permit(decisions: &[Option<AuthorizationDecision>]) -> Author
 
     for decision in decisions.iter().flatten() {
         if decision.decision == Decision::Permit {
-            println!("✅ Found Permit decision, returning immediately");
+            debug!("✅ Found Permit decision, returning immediately");
             return decision.clone();
         }
         combined.collect(decision.clone());
     }
 
-    println!("🔒 No Permit found, returning combined Deny");
+    debug!("🔒 No Permit found, returning combined Deny");
     combined
 }
 
 pub fn first_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     for decision in decisions.iter().flatten() {
         if decision.decision != Decision::NotApplicable {
-            println!("✅ Found decision, returning immediately");
+            debug!("✅ Found decision, returning immediately");
             return decision.clone();
         }
     }
 
-    println!("🔒 No Decision found, returning NotApplicable");
+    debug!("🔒 No Decision found, returning NotApplicable");
     AuthorizationDecision::new(Decision::NotApplicable)
 }
 
@@ -118,7 +119,7 @@ pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> Autho
     for decision in decisions.iter().flatten() {
         match decision.decision {
             Decision::Indeterminate => {
-                println!("🔒 Found Indeterminate, returning immediately");
+                debug!("🔒 Found Indeterminate, returning immediately");
                 return AuthorizationDecision::new(Decision::Indeterminate);
             }
             Decision::Permit => {
@@ -147,7 +148,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     for decision in decisions.iter().flatten() {
         match decision.decision {
             Decision::Permit => {
-                println!("✅ Found Permit decision, returning immediately");
+                debug!("✅ Found Permit decision, returning immediately");
                 return decision.clone();
             }
             Decision::Indeterminate => {
@@ -166,7 +167,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     }
 
     if deny {
-        println!("✅ Found Deny decision, returning combined Deny");
+        debug!("✅ Found Deny decision, returning combined Deny");
         return combined;
     }
 
@@ -178,12 +179,12 @@ pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> Author
 
     for decision in decisions.iter().flatten() {
         if decision.decision == Decision::Deny {
-            println!("✅ Found Deny decision, returning immediately");
+            debug!("✅ Found Deny decision, returning immediately");
             return decision.clone();
         }
         combined.collect(decision.clone());
     }
 
-    println!("🔒 No Deny found, returning combined Permit");
+    debug!("🔒 No Deny found, returning combined Permit");
     combined
 }

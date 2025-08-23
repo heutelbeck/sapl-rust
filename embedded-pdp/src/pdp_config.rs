@@ -14,6 +14,7 @@
     under the License.
 */
 
+use log::error;
 use sapl_core::CombiningAlgorithm;
 use serde::Deserialize;
 use std::{fs::File, path::Path};
@@ -49,13 +50,13 @@ impl PdpConfig {
                         config
                     }
                     Err(e) => {
-                        println!("Error while reading pdp configuration: {e:#?}");
+                        error!("Error while reading pdp configuration: {e:#?}");
                         PdpConfig::default()
                     }
                 }
             }
             _ => {
-                println!("Pdp configuration policies/pdp.json not found");
+                error!("Pdp configuration policies/pdp.json not found");
                 PdpConfig::default()
             }
         }

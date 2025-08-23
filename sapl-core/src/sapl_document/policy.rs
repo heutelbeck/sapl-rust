@@ -14,6 +14,7 @@
     under the License.
 */
 
+use log::error;
 use serde_json::Value;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -130,7 +131,6 @@ impl Policy {
         // true (matching)      |   true        |   (PERMIT or DENY)
         //
         // https://sapl.io/docs/3.0.0-SNAPSHOT/6_2_Policy/
-
         let target = match self.target_exp.as_ref() {
             Some(exp) => exp.evaluate(auth_subscription),
             None => Ok(true),
@@ -138,13 +138,13 @@ impl Policy {
 
         match target {
             Err(e) => {
-                println!("Err evaluate target expression: {e:#?}");
+                error!("Evaluate target expression: {e:#?}");
                 Decision::Indeterminate
             }
             Ok(false) => Decision::NotApplicable,
             Ok(true) => match self.evaluate_where_statement(auth_subscription) {
                 Err(e) => {
-                    println!("Err evaluate where statement: {e:#?}");
+                    error!("Evaluate where statement: {e:#?}");
                     Decision::Indeterminate
                 }
                 Ok(false) => Decision::NotApplicable,
@@ -168,7 +168,7 @@ impl Policy {
                 Ok(true) => {}
                 Ok(false) => return Ok(false),
                 Err(e) => {
-                    println!("evaluate_where_statement got {e:#?}");
+                    error!("Evaluate_where_statement got {e:#?}");
                     return Ok(false);
                 }
             }
@@ -198,7 +198,7 @@ impl Policy {
 
         match target {
             Err(e) => {
-                println!("Err evaluate target expression: {e:#?}");
+                error!("Evaluate target expression: {e:#?}");
                 Box::pin(once_decision(AuthorizationDecision::new(
                     Decision::Indeterminate,
                 )))

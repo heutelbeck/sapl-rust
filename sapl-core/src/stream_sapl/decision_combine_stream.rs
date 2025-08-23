@@ -16,6 +16,7 @@
 
 use crate::AuthorizationDecision;
 use futures::Stream;
+use log::debug;
 use pin_project_lite::pin_project;
 use std::{
     pin::Pin,
@@ -65,7 +66,7 @@ where
         let mut any_stream_changed = false;
         let mut all_streams_ended;
 
-        // 🔄 STEP 1: Always poll all streams in a loop to consume ALL available data
+        // Always poll all streams in a loop to consume ALL available data
         loop {
             let mut made_progress = false;
             all_streams_ended = true;
@@ -85,19 +86,19 @@ where
                             };
 
                             if is_change {
-                                println!("📥 Stream {i} changed: {new_decision:?}");
+                                debug!("📥 Stream {i} changed: {new_decision:?}");
                                 this.decisions[i] = Some(new_decision);
                                 any_stream_changed = true;
                                 break;
                             } else {
-                                println!("📥 Stream {i} same value: {new_decision:?}");
+                                debug!("📥 Stream {i} same value: {new_decision:?}");
                             }
                             continue; // Keep polling this stream
                         }
                         Poll::Ready(None) => {
                             // Stream ended
                             if this.decisions[i].is_some() {
-                                println!("❌ Stream {i} ended");
+                                debug!("❌ Stream {i} ended");
                                 made_progress = true;
                                 this.decisions[i] = None;
                             }
@@ -116,18 +117,17 @@ where
             }
         }
 
-        // 🎯 STEP 2: Decide if we should emit
         let should_emit = if !*this.has_initial_emission {
             // For initial emission: emit as soon as we have ANY data
             let has_data = this.decisions.iter().any(|d| d.is_some());
             if has_data {
-                println!("🎉 Initial emission condition met");
+                debug!("🎉 Initial emission condition met");
             }
             has_data
         } else {
             // After initial: emit only on actual changes
             if any_stream_changed {
-                println!("🔄 Change detected, should emit");
+                debug!("🔄 Change detected, should emit");
             }
             any_stream_changed
         };
@@ -135,26 +135,23 @@ where
         if should_emit {
             if !*this.has_initial_emission {
                 *this.has_initial_emission = true;
-                println!(
+                debug!(
                     "🎉 Initial emission with {} decisions",
                     this.decisions.iter().filter(|d| d.is_some()).count()
                 );
             }
 
-            // 🔧 STEP 3: Combine the decisions
             let combined_decision = (this.combine_fn)(this.decisions);
-            println!("📤 Emitting combined decision: {combined_decision:?}");
+            debug!("📤 Emitting combined decision: {combined_decision:?}");
             return Poll::Ready(Some(combined_decision));
         }
 
-        // 🏁 STEP 4: Check if all streams are done
         if all_streams_ended {
-            println!("❌ All streams ended");
+            debug!("❌ All streams ended");
             return Poll::Ready(None);
         }
 
-        // ⏳ No changes right now, but streams are still active
-        println!("⏳ No changes, returning Pending (streams still active)");
+        debug!("⏳ No changes, returning Pending (streams still active)");
         Poll::Pending
     }
 }

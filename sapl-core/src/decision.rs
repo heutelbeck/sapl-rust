@@ -17,6 +17,7 @@
 use crate::authorization_subscription::AuthorizationSubscription;
 use crate::{AuthorizationDecision, Entitlement, Policy, Val};
 use futures::Stream;
+use log::error;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 use std::fmt::Display;
@@ -123,11 +124,11 @@ where
                     Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
                 }
                 Err(e) => {
-                    println!("Err evaluate where statement: {e:#?}");
+                    error!("Err evaluate where statement: {e:#?}");
                     Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
                 }
                 _ => {
-                    println!("Err evaluate where statement: {val:#?}");
+                    error!("Err evaluate where statement: {val:#?}");
                     Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
                 }
             },

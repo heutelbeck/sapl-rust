@@ -76,6 +76,14 @@ fn health() -> Value {
 
 #[launch]
 fn rocket() -> Rocket<Build> {
+    // Logging configuration, if not set as env var
+    if std::env::var("RUST_LOG").is_err() {
+        unsafe {
+            std::env::set_var("RUST_LOG", "info");
+        }
+    }
+    env_logger::try_init().ok();
+
     let pdp = Pdp::new(
         Some(Path::new("policies/pdp.json")),
         Some(Path::new("policies/")),

@@ -34,3 +34,4 @@ sapl-core = { version = "0.1.0", path = "../sapl-core" }
 pin-project-lite = "0.2.15"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.115"
+log = "0.4.27"

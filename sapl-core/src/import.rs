@@ -37,7 +37,6 @@ impl Import {
         match pair.as_rule() {
             Rule::function_import => Import::Function(pair.as_str().to_string()),
             Rule::library_import => {
-                println!("Hallo Welt 123");
                 let mut ids: Vec<String> =
                     pair.into_inner().map(parse_import_statement_ids).collect();
                 let alias = ids.pop().unwrap();

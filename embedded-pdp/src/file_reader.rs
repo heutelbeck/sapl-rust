@@ -15,6 +15,7 @@
 */
 
 use crate::pdp_config::PdpConfig;
+use log::{error, info};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use sapl_core::{SaplDocument, parse_sapl_file};
 use std::{
@@ -51,7 +52,7 @@ pub async fn file_reader(
                 &mut last_event_time,
                 e,
             ),
-            Err(e) => eprintln!("{e:?}"),
+            Err(e) => error!("{e:?}"),
         }
     }
 }
@@ -92,7 +93,7 @@ fn update_pdp_config(
 ) {
     let now = Instant::now();
     if now.duration_since(*last_event_time) > debounce_time {
-        println!("Update pdp.json");
+        info!("Update pdp.json");
         thread::sleep(Duration::from_secs(1));
         let mut config = shared_config.write().unwrap();
         config.update_algorithm(file);
@@ -108,7 +109,7 @@ fn update_policies(
 ) {
     let now = Instant::now();
     if now.duration_since(*last_event_time) > debounce_time {
-        println!("Update policies: {path:?}");
+        info!("Update policies: {path:?}");
         thread::sleep(Duration::from_secs(1));
         let mut policies = shared_policies.write().unwrap();
         *policies = read_all_policies(recurse(path));
