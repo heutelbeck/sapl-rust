@@ -48,7 +48,6 @@ pub enum Ast {
     BasicIdentifier(Arc<Vec<Ast>>),
     BasicFunction(Arc<Vec<Ast>>),
     BasicValue(Arc<Vec<Ast>>),
-    BasicGroup(Arc<Ast>),
     FilterComponent(Arc<Vec<Ast>>),
     FilterStatement(Arc<Vec<Ast>>),
     BasicIdentifierExpression(Arc<BasicIdentifierExpression>),
@@ -99,7 +98,6 @@ impl Clone for Ast {
             }
             Ast::BasicIdentifier(expr) => Ast::BasicIdentifier(Arc::clone(expr)),
             Ast::BasicFunction(expr) => Ast::BasicFunction(Arc::clone(expr)),
-            Ast::BasicGroup(expr) => Ast::BasicGroup(Arc::clone(expr)),
             Ast::BasicValue(expr) => Ast::BasicValue(Arc::clone(expr)),
             Ast::BasicIdentifierExpression(expr) => {
                 Ast::BasicIdentifierExpression(Arc::clone(expr))
@@ -226,7 +224,6 @@ impl Ast {
             Rule::pairs => Ast::SaplPairs(Arc::new(primary.into_inner().map(parse_pair).collect())),
             Rule::basic_identifier => Ast::BasicIdentifier(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_function => Ast::BasicFunction(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::basic_group => Ast::BasicGroup(Arc::new(Ast::parse(primary.into_inner()))),
             Rule::basic_value => Ast::BasicValue(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(primary.into_inner().map(parse_basics).collect())),
             Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
@@ -647,7 +644,6 @@ impl Iterator for ExprIter {
                 | Ast::LogicalNot(expr)
                 | Ast::Arguments(expr)
                 | Ast::Subscript(expr)
-                | Ast::BasicGroup(expr)
                 | Ast::BasicEnvironmentHeadAttribute(expr) => {
                     self.stack.push_back(Arc::clone(expr));
                 }

@@ -144,7 +144,7 @@ basic = _{
   | basic_relative
 }
 
-basic_group = { "(" ~ expression ~ ")" ~ step* }
+basic_group = _{ "(" ~ expression ~ ")" ~ step* }
 
 basic_value = { value ~ step+ }
 
