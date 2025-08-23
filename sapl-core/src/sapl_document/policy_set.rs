@@ -15,7 +15,8 @@
 */
 
 use crate::{
-    Ast, AuthorizationDecision, AuthorizationSubscription, CombiningAlgorithm, Policy, Rule,
+    Ast, AuthorizationDecision, AuthorizationSubscription, CombiningAlgorithm, Decision, Policy,
+    Rule, once_decision,
     sapl_document::combining_algorithm::{
         deny_overrides, deny_unless_permit, first_applicable, only_one_applicable,
         permit_overrides, permit_unless_deny,
@@ -79,19 +80,28 @@ impl PolicySet {
     pub fn evaluate(&self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
         use CombiningAlgorithm::*;
 
-        let decisions = self
-            .policies
-            .iter()
-            .map(|p| Some(p.evaluate(auth_sub)))
-            .collect::<Box<[Option<AuthorizationDecision>]>>();
+        match self.evaluate_target_expr(auth_sub) {
+            Err(e) => {
+                println!("Err evaluate target expression: {e:#?}");
+                AuthorizationDecision::new(Decision::Indeterminate)
+            }
+            Ok(false) => AuthorizationDecision::new(Decision::NotApplicable),
+            Ok(true) => {
+                let decisions = self
+                    .policies
+                    .iter()
+                    .map(|p| Some(p.evaluate(auth_sub)))
+                    .collect::<Box<[Option<AuthorizationDecision>]>>();
 
-        match &self.combining_algorithm {
-            DENY_OVERRIDES => deny_overrides(&decisions),
-            DENY_UNLESS_PERMIT => deny_unless_permit(&decisions),
-            FIRST_APPLICABLE => first_applicable(&decisions),
-            ONLY_ONE_APPLICABLE => only_one_applicable(&decisions),
-            PERMIT_OVERRIDES => permit_overrides(&decisions),
-            PERMIT_UNLESS_DENY => permit_unless_deny(&decisions),
+                match &self.combining_algorithm {
+                    DENY_OVERRIDES => deny_overrides(&decisions),
+                    DENY_UNLESS_PERMIT => deny_unless_permit(&decisions),
+                    FIRST_APPLICABLE => first_applicable(&decisions),
+                    ONLY_ONE_APPLICABLE => only_one_applicable(&decisions),
+                    PERMIT_OVERRIDES => permit_overrides(&decisions),
+                    PERMIT_UNLESS_DENY => permit_unless_deny(&decisions),
+                }
+            }
         }
     }
 
@@ -101,34 +111,56 @@ impl PolicySet {
     ) -> Pin<Box<dyn Stream<Item = AuthorizationDecision> + std::marker::Send>> {
         use CombiningAlgorithm::*;
 
-        let policy_streams = self
-            .policies
-            .iter()
-            .map(|p| p.evaluate_as_stream(auth_sub))
-            .collect();
+        match self.evaluate_target_expr(auth_sub) {
+            Err(e) => {
+                println!("Err evaluate target expression: {e:#?}");
+                Box::pin(once_decision(AuthorizationDecision::new(
+                    Decision::Indeterminate,
+                )))
+            }
+            Ok(false) => Box::pin(once_decision(AuthorizationDecision::new(
+                Decision::NotApplicable,
+            ))),
+            Ok(true) => {
+                let policy_streams = self
+                    .policies
+                    .iter()
+                    .map(|p| p.evaluate_as_stream(auth_sub))
+                    .collect();
 
-        match &self.combining_algorithm {
-            DENY_OVERRIDES => Box::pin(DecisionCombinedStream::new(policy_streams, deny_overrides)),
-            DENY_UNLESS_PERMIT => Box::pin(DecisionCombinedStream::new(
-                policy_streams,
-                deny_unless_permit,
-            )),
-            FIRST_APPLICABLE => Box::pin(DecisionCombinedStream::new(
-                policy_streams,
-                first_applicable,
-            )),
-            ONLY_ONE_APPLICABLE => Box::pin(DecisionCombinedStream::new(
-                policy_streams,
-                only_one_applicable,
-            )),
-            PERMIT_OVERRIDES => Box::pin(DecisionCombinedStream::new(
-                policy_streams,
-                permit_overrides,
-            )),
-            PERMIT_UNLESS_DENY => Box::pin(DecisionCombinedStream::new(
-                policy_streams,
-                permit_unless_deny,
-            )),
+                match &self.combining_algorithm {
+                    DENY_OVERRIDES => {
+                        Box::pin(DecisionCombinedStream::new(policy_streams, deny_overrides))
+                    }
+                    DENY_UNLESS_PERMIT => Box::pin(DecisionCombinedStream::new(
+                        policy_streams,
+                        deny_unless_permit,
+                    )),
+                    FIRST_APPLICABLE => Box::pin(DecisionCombinedStream::new(
+                        policy_streams,
+                        first_applicable,
+                    )),
+                    ONLY_ONE_APPLICABLE => Box::pin(DecisionCombinedStream::new(
+                        policy_streams,
+                        only_one_applicable,
+                    )),
+                    PERMIT_OVERRIDES => Box::pin(DecisionCombinedStream::new(
+                        policy_streams,
+                        permit_overrides,
+                    )),
+                    PERMIT_UNLESS_DENY => Box::pin(DecisionCombinedStream::new(
+                        policy_streams,
+                        permit_unless_deny,
+                    )),
+                }
+            }
+        }
+    }
+
+    fn evaluate_target_expr(&self, auth_sub: &AuthorizationSubscription) -> Result<bool, String> {
+        match self.target_exp.as_ref() {
+            Some(exp) => exp.evaluate(auth_sub),
+            None => Ok(true),
         }
     }
 }
