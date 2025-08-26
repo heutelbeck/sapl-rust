@@ -105,19 +105,19 @@ impl Policy {
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
         let result = self.evaluate_decison(auth_subscription);
         match result {
-            Decision::Permit => AuthorizationDecision {
-                decision: result,
-                resource: self.evaluate_transformation(auth_subscription),
-                obligation: self.evaluate_obligation(auth_subscription),
-                advice: self.evaluate_advice(auth_subscription),
-            },
-            Decision::Deny => AuthorizationDecision {
-                decision: result,
-                resource: None,
-                obligation: self.evaluate_obligation(auth_subscription),
-                advice: self.evaluate_advice(auth_subscription),
-            },
-            _ => AuthorizationDecision::new(result),
+            Decision::Permit => AuthorizationDecision::new(
+                result,
+                self.evaluate_transformation(auth_subscription),
+                self.evaluate_obligation(auth_subscription),
+                self.evaluate_advice(auth_subscription),
+            ),
+            Decision::Deny => AuthorizationDecision::new(
+                result,
+                None,
+                self.evaluate_obligation(auth_subscription),
+                self.evaluate_advice(auth_subscription),
+            ),
+            _ => result.into(),
         }
     }
 
@@ -199,13 +199,9 @@ impl Policy {
         match target {
             Err(e) => {
                 error!("Evaluate target expression: {e:#?}");
-                Box::pin(once_decision(AuthorizationDecision::new(
-                    Decision::Indeterminate,
-                )))
+                Box::pin(once_decision(Decision::Indeterminate.into()))
             }
-            Ok(false) => Box::pin(once_decision(AuthorizationDecision::new(
-                Decision::NotApplicable,
-            ))),
+            Ok(false) => Box::pin(once_decision(Decision::NotApplicable.into())),
             Ok(true) => Box::pin(
                 self.evaluate_where_as_stream(auth_subscription)
                     .eval_to_decision(self.clone(), auth_subscription),

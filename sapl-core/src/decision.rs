@@ -106,30 +106,30 @@ where
             Ready(Some(val)) => match val {
                 Ok(Val::Boolean(true)) | Ok(Val::CompInteger(true, _)) => {
                     match &self.policy.entitlement {
-                        Entitlement::Permit => Ready(Some(AuthorizationDecision {
-                            decision: Decision::entitlement(&self.policy.entitlement),
-                            resource: self.policy.evaluate_transformation(&self.auth_subscription),
-                            obligation: self.policy.evaluate_obligation(&self.auth_subscription),
-                            advice: self.policy.evaluate_advice(&self.auth_subscription),
-                        })),
-                        Entitlement::Deny => Ready(Some(AuthorizationDecision {
-                            decision: Decision::entitlement(&self.policy.entitlement),
-                            resource: None,
-                            obligation: self.policy.evaluate_obligation(&self.auth_subscription),
-                            advice: self.policy.evaluate_advice(&self.auth_subscription),
-                        })),
+                        Entitlement::Permit => Ready(Some(AuthorizationDecision::new(
+                            Decision::entitlement(&self.policy.entitlement),
+                            self.policy.evaluate_transformation(&self.auth_subscription),
+                            self.policy.evaluate_obligation(&self.auth_subscription),
+                            self.policy.evaluate_advice(&self.auth_subscription),
+                        ))),
+                        Entitlement::Deny => Ready(Some(AuthorizationDecision::new(
+                            Decision::entitlement(&self.policy.entitlement),
+                            None,
+                            self.policy.evaluate_obligation(&self.auth_subscription),
+                            self.policy.evaluate_advice(&self.auth_subscription),
+                        ))),
                     }
                 }
                 Ok(Val::Boolean(false)) | Ok(Val::CompInteger(false, _)) => {
-                    Ready(Some(AuthorizationDecision::new(Decision::NotApplicable)))
+                    Ready(Some(Decision::NotApplicable.into()))
                 }
                 Err(e) => {
                     error!("Err evaluate where statement: {e:#?}");
-                    Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
+                    Ready(Some(Decision::Indeterminate.into()))
                 }
                 _ => {
                     error!("Err evaluate where statement: {val:#?}");
-                    Ready(Some(AuthorizationDecision::new(Decision::Indeterminate)))
+                    Ready(Some(Decision::Indeterminate.into()))
                 }
             },
             Pending => Pending,

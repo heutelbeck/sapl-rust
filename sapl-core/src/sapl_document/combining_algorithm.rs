@@ -54,7 +54,7 @@ impl CombiningAlgorithm {
 pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut indeterminate = false;
     let mut permit = false;
-    let mut combined = AuthorizationDecision::new(Decision::Permit);
+    let mut combined: AuthorizationDecision = Decision::Permit.into();
 
     for decision in decisions.iter().flatten() {
         match decision.decision {
@@ -74,7 +74,7 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
     }
 
     if indeterminate {
-        return AuthorizationDecision::new(Decision::Indeterminate);
+        return Decision::Indeterminate.into();
     }
 
     if permit {
@@ -82,11 +82,11 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
         return combined;
     }
 
-    AuthorizationDecision::new(Decision::NotApplicable)
+    Decision::NotApplicable.into()
 }
 
 pub fn deny_unless_permit(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
-    let mut combined = AuthorizationDecision::new(Decision::Deny);
+    let mut combined = AuthorizationDecision::default();
 
     for decision in decisions.iter().flatten() {
         if decision.decision == Decision::Permit {
@@ -109,18 +109,18 @@ pub fn first_applicable(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     }
 
     debug!("🔒 No Decision found, returning NotApplicable");
-    AuthorizationDecision::new(Decision::NotApplicable)
+    Decision::NotApplicable.into()
 }
 
 pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut cnt = 0;
-    let mut combined = AuthorizationDecision::new(Decision::NotApplicable);
+    let mut combined: AuthorizationDecision = Decision::NotApplicable.into();
 
     for decision in decisions.iter().flatten() {
         match decision.decision {
             Decision::Indeterminate => {
                 debug!("🔒 Found Indeterminate, returning immediately");
-                return AuthorizationDecision::new(Decision::Indeterminate);
+                return Decision::Indeterminate.into();
             }
             Decision::Permit => {
                 cnt += 1;
@@ -136,14 +136,14 @@ pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> Autho
 
     match cnt {
         0..=1 => combined,
-        _ => AuthorizationDecision::new(Decision::Indeterminate),
+        _ => Decision::Indeterminate.into(),
     }
 }
 
 pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut indeterminate = false;
     let mut deny = false;
-    let mut combined = AuthorizationDecision::new(Decision::Deny);
+    let mut combined = AuthorizationDecision::default();
 
     for decision in decisions.iter().flatten() {
         match decision.decision {
@@ -163,7 +163,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     }
 
     if indeterminate {
-        return AuthorizationDecision::new(Decision::Indeterminate);
+        return Decision::Indeterminate.into();
     }
 
     if deny {
@@ -171,11 +171,11 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
         return combined;
     }
 
-    AuthorizationDecision::new(Decision::NotApplicable)
+    Decision::NotApplicable.into()
 }
 
 pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
-    let mut combined = AuthorizationDecision::new(Decision::Permit);
+    let mut combined: AuthorizationDecision = Decision::Permit.into();
 
     for decision in decisions.iter().flatten() {
         if decision.decision == Decision::Deny {

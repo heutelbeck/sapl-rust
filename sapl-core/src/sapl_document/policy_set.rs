@@ -84,9 +84,9 @@ impl PolicySet {
         match self.evaluate_target_expr(auth_sub) {
             Err(e) => {
                 error!("Err evaluate target expression: {e:#?}");
-                AuthorizationDecision::new(Decision::Indeterminate)
+                Decision::Indeterminate.into()
             }
-            Ok(false) => AuthorizationDecision::new(Decision::NotApplicable),
+            Ok(false) => Decision::NotApplicable.into(),
             Ok(true) => {
                 let decisions = self
                     .policies
@@ -115,13 +115,9 @@ impl PolicySet {
         match self.evaluate_target_expr(auth_sub) {
             Err(e) => {
                 error!("Err evaluate target expression: {e:#?}");
-                Box::pin(once_decision(AuthorizationDecision::new(
-                    Decision::Indeterminate,
-                )))
+                Box::pin(once_decision(Decision::Indeterminate.into()))
             }
-            Ok(false) => Box::pin(once_decision(AuthorizationDecision::new(
-                Decision::NotApplicable,
-            ))),
+            Ok(false) => Box::pin(once_decision(Decision::NotApplicable.into())),
             Ok(true) => {
                 let policy_streams = self
                     .policies

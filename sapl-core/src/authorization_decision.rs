@@ -24,53 +24,60 @@ pub struct AuthorizationDecision {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub obligation: Option<Value>,
+    pub obligations: Option<Vec<Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub advice: Option<Value>,
+    pub advice: Option<Vec<Value>>,
 }
 
 impl AuthorizationDecision {
-    pub fn new(decision: Decision) -> Self {
+    pub fn new(
+        decision: Decision,
+        resource: Option<Value>,
+        obligations: Option<Value>,
+        advice: Option<Value>,
+    ) -> Self {
         Self {
             decision,
-            resource: None,
-            obligation: None,
-            advice: None,
+            resource,
+            obligations: match obligations {
+                Some(obj) => Some(vec![obj]),
+                None => None,
+            },
+            advice: match advice {
+                Some(obj) => Some(vec![obj]),
+                None => None,
+            },
         }
     }
 
     pub fn collect(&mut self, auth_decision: AuthorizationDecision) {
-        self.add_obligation(auth_decision.obligation);
+        self.add_obligations(auth_decision.obligations);
         self.add_advice(auth_decision.advice);
         self.add_resource(auth_decision.resource);
     }
 
-    fn add_obligation(&mut self, obligation: Option<Value>) {
-        if let Some(mut obligation) = obligation {
-            if self.obligation.is_none() {
-                self.obligation = Some(obligation);
+    fn add_obligations(&mut self, obligations: Option<Vec<Value>>) {
+        if let Some(obligations) = obligations {
+            if self.obligations.is_none() {
+                self.obligations = Some(obligations);
                 return;
             }
 
-            if let Some(oblig) = self.obligation.as_mut().unwrap().as_array_mut()
-                && let Some(new_obligation) = obligation.as_array_mut()
-            {
-                oblig.extend(new_obligation.iter().cloned());
+            if let Some(oblig) = self.obligations.as_mut() {
+                oblig.append(&mut obligations.clone());
             }
         }
     }
 
-    fn add_advice(&mut self, advice: Option<Value>) {
-        if let Some(mut advice) = advice {
+    fn add_advice(&mut self, advice: Option<Vec<Value>>) {
+        if let Some(advice) = advice {
             if self.advice.is_none() {
                 self.advice = Some(advice);
                 return;
             }
 
-            if let Some(a) = self.advice.as_mut().unwrap().as_array_mut()
-                && let Some(new_advice) = advice.as_array_mut()
-            {
-                a.extend(new_advice.iter().cloned());
+            if let Some(a) = self.advice.as_mut() {
+                a.append(&mut advice.clone());
             }
         }
     }
@@ -99,8 +106,17 @@ impl Default for AuthorizationDecision {
         Self {
             decision: Decision::Deny,
             resource: None,
-            obligation: None,
+            obligations: None,
             advice: None,
+        }
+    }
+}
+
+impl From<Decision> for AuthorizationDecision {
+    fn from(decision: Decision) -> Self {
+        Self {
+            decision,
+            ..Self::default()
         }
     }
 }

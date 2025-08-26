@@ -177,7 +177,7 @@ mod test {
 
         assert_eq!(
             response.into_string().unwrap(),
-            "{\"decision\":\"PERMIT\",\"resource\":\"***something***\",\"obligation\":{\"type\":\"logAccess\",\"message\":\"User anonymous has accessed: http://localhost:8080/numbers\"}}"
+            "{\"decision\":\"PERMIT\",\"resource\":\"***something***\",\"obligations\":[{\"type\":\"logAccess\",\"message\":\"User anonymous has accessed: http://localhost:8080/numbers\"}]}"
         );
     }
 
@@ -193,7 +193,7 @@ mod test {
 
         assert_eq!(
             response.into_string().unwrap(),
-            "{\"decision\":\"PERMIT\",\"obligation\":{\"type\":\"sendEmail\",\"recipient\":\"Adam Admin <admin@example.com>\",\"subject\":\"Data was accessed.\",\"message\":\"Administrator anonymous has accessed: http://localhost:8080/numbers\"},\"advice\":{\"type\":\"logAccess\",\"message\":\"User anonymous has accessed: http://localhost:8080/numbers\"}}"
+            "{\"decision\":\"PERMIT\",\"obligations\":[{\"type\":\"sendEmail\",\"recipient\":\"Adam Admin <admin@example.com>\",\"subject\":\"Data was accessed.\",\"message\":\"Administrator anonymous has accessed: http://localhost:8080/numbers\"}],\"advice\":[{\"type\":\"logAccess\",\"message\":\"User anonymous has accessed: http://localhost:8080/numbers\"}]}"
         );
     }
 }
