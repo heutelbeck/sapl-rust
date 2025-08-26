@@ -93,6 +93,12 @@ where
             (_, _) => return Pending,
         }
 
+        if *self.as_ref().project_ref().lhs == Ok(Val::None)
+            || *self.as_ref().project_ref().rhs == Ok(Val::None)
+        {
+            return Pending;
+        }
+
         Ready(Some((self.op_fn)(
             self.as_ref().project_ref().lhs,
             self.as_ref().project_ref().rhs,
