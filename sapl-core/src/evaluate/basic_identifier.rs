@@ -24,7 +24,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 pub(crate) fn basic_identifier(
-    bi: &Arc<Vec<Ast>>,
+    bi: &Arc<[Ast]>,
     auth_subscription: &AuthorizationSubscription,
 ) -> Result<Val, String> {
     use self::Ast::*;

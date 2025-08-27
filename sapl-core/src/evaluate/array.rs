@@ -19,7 +19,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 pub(crate) fn array(
-    array: &Arc<Vec<Ast>>,
+    array: &Arc<[Ast]>,
     auth_subscription: &AuthorizationSubscription,
 ) -> Result<Val, String> {
     let mut json_array: Vec<Value> = Vec::new();

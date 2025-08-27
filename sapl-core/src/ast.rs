@@ -38,22 +38,22 @@ pub enum Ast {
         op: Op,
         rhs: Arc<Ast>,
     },
-    SaplPairs(Arc<Vec<Ast>>),
+    SaplPairs(Arc<[Ast]>),
     SaplPair {
         lhs: Arc<Ast>,
-        rhs: Arc<Vec<Ast>>,
+        rhs: Arc<[Ast]>,
     },
-    BasicEnvironmentAttribute(Arc<Vec<Ast>>),
+    BasicEnvironmentAttribute(Arc<[Ast]>),
     BasicEnvironmentHeadAttribute(Arc<Ast>),
-    BasicIdentifier(Arc<Vec<Ast>>),
-    BasicFunction(Arc<Vec<Ast>>),
-    BasicValue(Arc<Vec<Ast>>),
-    FilterComponent(Arc<Vec<Ast>>),
-    FilterStatement(Arc<Vec<Ast>>),
+    BasicIdentifier(Arc<[Ast]>),
+    BasicFunction(Arc<[Ast]>),
+    BasicValue(Arc<[Ast]>),
+    FilterComponent(Arc<[Ast]>),
+    FilterStatement(Arc<[Ast]>),
     BasicIdentifierExpression(Arc<BasicIdentifierExpression>),
-    FunctionIdentifier(Arc<Vec<Ast>>),
-    VariableAssignment(Arc<Vec<Ast>>),
-    Array(Arc<Vec<Ast>>),
+    FunctionIdentifier(Arc<[Ast]>),
+    VariableAssignment(Arc<[Ast]>),
+    Array(Arc<[Ast]>),
     UnaryPlus(Arc<Ast>),
     UnaryMinus(Arc<Ast>),
     LogicalNot(Arc<Ast>),
@@ -136,25 +136,27 @@ impl Ast {
     pub fn parse(pairs: pest::iterators::Pairs<Rule>) -> Self {
         fn parse_pair(pair: pest::iterators::Pair<Rule>) -> Ast {
             match pair.as_rule() {
-                Rule::pairs => {
-                    Ast::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect()))
-                }
+                Rule::pairs => Ast::SaplPairs(Arc::from(
+                    pair.into_inner().map(parse_pair).collect::<Vec<_>>(),
+                )),
                 Rule::pair => {
                     let mut inner_rules = pair.into_inner();
                     let lhs = inner_rules.next().unwrap();
                     Ast::SaplPair {
                         lhs: Arc::new(Ast::new_string(lhs.as_str())),
-                        rhs: Arc::new(inner_rules.map(parse_pair).collect()),
+                        rhs: Arc::from(inner_rules.map(parse_pair).collect::<Vec<_>>()),
                     }
                 }
                 Rule::basic_group => Ast::parse(pair.into_inner()),
-                Rule::basic_value => {
-                    Ast::BasicValue(Arc::new(pair.into_inner().map(parse_pair).collect()))
-                }
-                Rule::basic_identifier => {
-                    Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
-                }
-                Rule::array => Ast::Array(Arc::new(pair.into_inner().map(parse_pair).collect())),
+                Rule::basic_value => Ast::BasicValue(Arc::from(
+                    pair.into_inner().map(parse_pair).collect::<Vec<_>>(),
+                )),
+                Rule::basic_identifier => Ast::BasicIdentifier(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
+                Rule::array => Ast::Array(Arc::from(
+                    pair.into_inner().map(parse_pair).collect::<Vec<_>>(),
+                )),
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::boolean_literal => Ast::Boolean(pair.as_str().parse().unwrap()),
                 Rule::integer => Ast::Integer(pair.as_str().trim().parse().unwrap()),
@@ -173,28 +175,30 @@ impl Ast {
                 Rule::basic_identifier_expression => Ast::BasicIdentifierExpression(Arc::new(
                     BasicIdentifierExpression::new(pair.as_str()),
                 )),
-                Rule::function_identifier => {
-                    Ast::FunctionIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
-                }
+                Rule::function_identifier => Ast::FunctionIdentifier(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
                 Rule::arguments => {
                     Ast::Arguments(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
                 }
                 Rule::subscript => {
                     Ast::Subscript(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
                 }
-                Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(
-                    pair.into_inner().map(parse_basics).collect(),
+                Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
                 )),
                 Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(
                     Arc::new(parse_basics(pair.into_inner().next().unwrap())),
                 ),
-                Rule::basic_identifier => {
-                    Ast::BasicIdentifier(Arc::new(pair.into_inner().map(parse_basics).collect()))
-                }
-                Rule::filter_statement => {
-                    Ast::FilterStatement(Arc::new(pair.into_inner().map(parse_basics).collect()))
-                }
-                Rule::array => Ast::Array(Arc::new(pair.into_inner().map(parse_basics).collect())),
+                Rule::basic_identifier => Ast::BasicIdentifier(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
+                Rule::filter_statement => Ast::FilterStatement(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
+                Rule::array => Ast::Array(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
                 Rule::signed_number => Ast::SignedNumber(pair.as_str().to_string()),
                 Rule::key_step => Ast::KeyStep(pair.as_str().to_string()),
                 Rule::recursive_key_step => Ast::RecursiveKeyStep(pair.as_str().to_string()),
@@ -204,9 +208,9 @@ impl Ast {
                 Rule::head_attribute_finder_step => {
                     Ast::HeadAttributeFinderStep(pair.as_str().to_string())
                 }
-                Rule::pairs => {
-                    Ast::SaplPairs(Arc::new(pair.into_inner().map(parse_pair).collect()))
-                }
+                Rule::pairs => Ast::SaplPairs(Arc::from(
+                    pair.into_inner().map(parse_pair).collect::<Vec<_>>(),
+                )),
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::integer => Ast::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::id => Ast::Id(pair.as_str().to_string()),
@@ -221,14 +225,14 @@ impl Ast {
         }
         PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
-            Rule::pairs => Ast::SaplPairs(Arc::new(primary.into_inner().map(parse_pair).collect())),
-            Rule::basic_identifier => Ast::BasicIdentifier(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::basic_function => Ast::BasicFunction(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::basic_value => Ast::BasicValue(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::pairs => Ast::SaplPairs(Arc::from(primary.into_inner().map(parse_pair).collect::<Vec<_>>())),
+            Rule::basic_identifier => Ast::BasicIdentifier(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
+            Rule::basic_function => Ast::BasicFunction(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
+            Rule::basic_value => Ast::BasicValue(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
+            Rule::basic_environment_attribute => Ast::BasicEnvironmentAttribute(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
             Rule::basic_environment_head_attribute => Ast::BasicEnvironmentHeadAttribute(Arc::new(parse_basics(primary.into_inner().next().unwrap()))),
-            Rule::filter_component => Ast::FilterComponent(Arc::new(primary.into_inner().map(parse_basics).collect())),
-            Rule::array => Ast::Array(Arc::new(primary.into_inner().map(parse_basics).collect())),
+            Rule::filter_component => Ast::FilterComponent(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
+            Rule::array => Ast::Array(Arc::from(primary.into_inner().map(parse_basics).collect::<Vec<_>>())),
             Rule::string => Ast::new_string(primary.as_str()),
             Rule::boolean_literal => Ast::Boolean(primary.as_str().parse().unwrap()),
             Rule::integer => Ast::Integer(primary.as_str().parse().unwrap()),
@@ -276,8 +280,10 @@ impl Ast {
     pub fn parse_where_statement(pair: pest::iterators::Pair<Rule>) -> Ast {
         match pair.as_rule() {
             Rule::condition => Ast::parse(pair.into_inner()),
-            Rule::variable_assignment => Ast::VariableAssignment(Arc::new(
-                pair.into_inner().map(Ast::parse_where_statement).collect(),
+            Rule::variable_assignment => Ast::VariableAssignment(Arc::from(
+                pair.into_inner()
+                    .map(Ast::parse_where_statement)
+                    .collect::<Vec<_>>(),
             )),
             Rule::id => Ast::Id(pair.as_str().to_string()),
             rule => unreachable!(
@@ -625,16 +631,16 @@ impl Iterator for ExprIter {
                         self.stack.push_back(Arc::new(elem.clone()));
                     }
                 }
-                Ast::SaplPairs(expr)
-                | Ast::BasicIdentifier(expr)
+                Ast::VariableAssignment(expr)
+                | Ast::Array(expr)
                 | Ast::BasicEnvironmentAttribute(expr)
-                | Ast::BasicFunction(expr)
-                | Ast::BasicValue(expr)
                 | Ast::FunctionIdentifier(expr)
-                | Ast::VariableAssignment(expr)
-                | Ast::FilterComponent(expr)
                 | Ast::FilterStatement(expr)
-                | Ast::Array(expr) => {
+                | Ast::FilterComponent(expr)
+                | Ast::BasicValue(expr)
+                | Ast::BasicFunction(expr)
+                | Ast::BasicIdentifier(expr)
+                | Ast::SaplPairs(expr) => {
                     for elem in expr.iter() {
                         self.stack.push_back(Arc::new(elem.clone()));
                     }

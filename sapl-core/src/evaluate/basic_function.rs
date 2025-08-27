@@ -24,7 +24,7 @@ use crate::{
 use std::sync::Arc;
 
 pub(crate) fn basic_function(
-    bf: &Arc<Vec<Ast>>,
+    bf: &Arc<[Ast]>,
     _auth_subscription: &AuthorizationSubscription,
 ) -> Result<Val, String> {
     match bf.first() {
@@ -42,7 +42,7 @@ pub(crate) fn basic_function(
 
 fn evaluate_function_identifier(fi: &Ast, arg: Result<Val, String>) -> Result<Val, String> {
     match fi {
-        Ast::FunctionIdentifier(path) => match path.as_slice() {
+        Ast::FunctionIdentifier(path) => match path.as_ref() {
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "secondOf" =>
             {
@@ -113,17 +113,17 @@ fn evaluate_arguments(input: &Ast) -> Result<Val, String> {
 mod tests {
     use super::*;
 
-    fn get_basic_function_time_req(first: &str, second: &str) -> Arc<Vec<Ast>> {
-        let fi = Ast::FunctionIdentifier(Arc::new(vec![
+    fn get_basic_function_time_req(first: &str, second: &str) -> Arc<[Ast]> {
+        let fi = Ast::FunctionIdentifier(Arc::new([
             Ast::Id(first.to_string()),
             Ast::Id(second.to_string()),
         ]));
         let arg = Ast::Arguments(Arc::new(Ast::String("2025-07-26T20:00:23Z".to_string())));
 
-        Arc::new(vec![fi, arg])
+        Arc::new([fi, arg])
     }
 
-    fn basic_function_call(input: Arc<Vec<Ast>>) -> Result<Val, String> {
+    fn basic_function_call(input: Arc<[Ast]>) -> Result<Val, String> {
         basic_function(
             &input,
             &AuthorizationSubscription::new_example_subscription1(),
@@ -184,19 +184,19 @@ mod tests {
 
     #[test]
     fn basic_function_time_second_of_and_time_now() {
-        let fi = Ast::FunctionIdentifier(Arc::new(vec![
+        let fi = Ast::FunctionIdentifier(Arc::new([
             Ast::Id("time".to_string()),
             Ast::Id("secondOf".to_string()),
         ]));
-        let fi2 = Ast::FunctionIdentifier(Arc::new(vec![
+        let fi2 = Ast::FunctionIdentifier(Arc::new([
             Ast::Id("time".to_string()),
             Ast::Id("now".to_string()),
         ]));
-        let bea = Arc::new(Ast::BasicEnvironmentAttribute(Arc::new(vec![fi2])));
+        let bea = Arc::new(Ast::BasicEnvironmentAttribute(Arc::new([fi2])));
         let arg = Ast::Arguments(bea);
 
         let result = basic_function(
-            &Arc::new(vec![fi, arg]),
+            &Arc::from([fi, arg]),
             &AuthorizationSubscription::new_example_subscription1(),
         );
         let second_now = second_of(Time::now());

@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 pub(crate) fn sapl_pair(
     lhs: &Arc<Ast>,
-    rhs: &Arc<Vec<Ast>>,
+    rhs: &Arc<[Ast]>,
     auth_subscription: &AuthorizationSubscription,
 ) -> Result<Val, String> {
     if let Ok(Val::String(key)) = lhs.evaluate_inner(auth_subscription) {
@@ -35,7 +35,7 @@ pub(crate) fn sapl_pair(
 }
 
 fn extract_string_from_saplpair_rhs(
-    ast: &Arc<Vec<Ast>>,
+    ast: &Arc<[Ast]>,
     auth_subscription: &AuthorizationSubscription,
 ) -> Value {
     use crate::evaluate::basic_identifier;

@@ -19,7 +19,7 @@ use serde_json::{Map, Value};
 use std::sync::Arc;
 
 pub(crate) fn sapl_pairs(
-    pairs: &Arc<Vec<Ast>>,
+    pairs: &Arc<[Ast]>,
     auth_subscription: &AuthorizationSubscription,
 ) -> Result<Val, String> {
     let mut map: Map<std::string::String, Value> = Map::new();
