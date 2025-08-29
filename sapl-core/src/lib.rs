@@ -43,6 +43,7 @@ pub use crate::sapl_document::combining_algorithm::{
 };
 pub use crate::schema::Schema;
 pub use crate::val::Val;
+pub use stream_sapl::{DecisionCombinedStream, ValueStream};
 
 use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;

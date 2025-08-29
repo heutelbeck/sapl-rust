@@ -15,20 +15,19 @@
 */
 
 //add files to source tree
-mod decision_stream;
 mod file_reader;
 mod pdp_config;
 
 //Re-export types from pest-parser that users need
 pub use crate::file_reader::*;
-use decision_stream::DecisionStream;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
 use crate::pdp_config::PdpConfig;
 use futures::Stream;
 use sapl_core::{
-    AuthorizationDecision, CombiningAlgorithm, SaplDocument, deny_overrides, deny_unless_permit,
-    only_one_applicable, parse_sapl_file, permit_overrides, permit_unless_deny,
+    AuthorizationDecision, CombiningAlgorithm, DecisionCombinedStream, SaplDocument,
+    deny_overrides, deny_unless_permit, only_one_applicable, parse_sapl_file, permit_overrides,
+    permit_unless_deny, stream_sapl::StreamSaplDecision,
 };
 use serde_json::Value;
 use std::{
@@ -104,16 +103,24 @@ impl Pdp {
             .collect();
 
         match &config_guard.algorithm {
-            DENY_OVERRIDES => Box::pin(DecisionStream::new(policy_streams, deny_overrides)),
-            DENY_UNLESS_PERMIT => Box::pin(DecisionStream::new(policy_streams, deny_unless_permit)),
+            DENY_OVERRIDES => Box::pin(
+                DecisionCombinedStream::new(policy_streams, deny_overrides).to_json_value(),
+            ),
+            DENY_UNLESS_PERMIT => Box::pin(
+                DecisionCombinedStream::new(policy_streams, deny_unless_permit).to_json_value(),
+            ),
             FIRST_APPLICABLE => {
                 panic!("First-applicable is not allowed on PDP level for document combination!")
             }
-            ONLY_ONE_APPLICABLE => {
-                Box::pin(DecisionStream::new(policy_streams, only_one_applicable))
-            }
-            PERMIT_OVERRIDES => Box::pin(DecisionStream::new(policy_streams, permit_overrides)),
-            PERMIT_UNLESS_DENY => Box::pin(DecisionStream::new(policy_streams, permit_unless_deny)),
+            ONLY_ONE_APPLICABLE => Box::pin(
+                DecisionCombinedStream::new(policy_streams, only_one_applicable).to_json_value(),
+            ),
+            PERMIT_OVERRIDES => Box::pin(
+                DecisionCombinedStream::new(policy_streams, permit_overrides).to_json_value(),
+            ),
+            PERMIT_UNLESS_DENY => Box::pin(
+                DecisionCombinedStream::new(policy_streams, permit_unless_deny).to_json_value(),
+            ),
         }
     }
 }

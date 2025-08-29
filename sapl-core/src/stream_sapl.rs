@@ -18,7 +18,8 @@ use futures::Stream;
 use std::sync::Arc;
 
 use crate::{
-    Policy, Val, authorization_subscription::AuthorizationSubscription, decision::DecisionStream,
+    AuthorizationDecision, Policy, Val, authorization_subscription::AuthorizationSubscription,
+    decision::DecisionStream,
 };
 
 mod once;
@@ -26,6 +27,9 @@ pub use once::{once_decision, once_val};
 
 mod decision_combine_stream;
 pub use decision_combine_stream::DecisionCombinedStream;
+
+mod value_stream;
+pub use value_stream::ValueStream;
 
 mod eval_op;
 pub(crate) use eval_op::EvalOp;
@@ -59,5 +63,16 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         Self: Sized,
     {
         EvalSecondsOf::new(self)
+    }
+}
+
+impl<S> StreamSaplDecision for S where S: Stream<Item = AuthorizationDecision> + std::marker::Send {}
+
+pub trait StreamSaplDecision: Stream<Item = AuthorizationDecision> + Send {
+    fn to_json_value(self) -> ValueStream<Self>
+    where
+        Self: Sized,
+    {
+        ValueStream::new(self)
     }
 }
