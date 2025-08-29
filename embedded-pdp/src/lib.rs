@@ -75,14 +75,14 @@ impl Pdp {
             .collect::<Box<[Option<AuthorizationDecision>]>>();
 
         match &config_guard.algorithm {
-            DENY_OVERRIDES => decision_to_value(&deny_overrides(&decisions)),
-            DENY_UNLESS_PERMIT => decision_to_value(&deny_unless_permit(&decisions)),
+            DENY_OVERRIDES => deny_overrides(&decisions).into(),
+            DENY_UNLESS_PERMIT => deny_unless_permit(&decisions).into(),
             FIRST_APPLICABLE => {
                 panic!("First-applicable is not allowed on PDP level for document combination!")
             }
-            ONLY_ONE_APPLICABLE => decision_to_value(&only_one_applicable(&decisions)),
-            PERMIT_OVERRIDES => decision_to_value(&permit_overrides(&decisions)),
-            PERMIT_UNLESS_DENY => decision_to_value(&permit_unless_deny(&decisions)),
+            ONLY_ONE_APPLICABLE => only_one_applicable(&decisions).into(),
+            PERMIT_OVERRIDES => permit_overrides(&decisions).into(),
+            PERMIT_UNLESS_DENY => permit_unless_deny(&decisions).into(),
         }
     }
 
@@ -123,10 +123,6 @@ impl Pdp {
             ),
         }
     }
-}
-
-fn decision_to_value(auth_decision: &AuthorizationDecision) -> Value {
-    serde_json::to_value(auth_decision).expect("Failed to serialize AuthorizationDecision to JSON")
 }
 
 fn recurse(path: impl AsRef<Path>) -> Vec<PathBuf> {

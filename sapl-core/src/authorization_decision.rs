@@ -120,3 +120,9 @@ impl From<Decision> for AuthorizationDecision {
         }
     }
 }
+
+impl From<AuthorizationDecision> for Value {
+    fn from(value: AuthorizationDecision) -> Self {
+        serde_json::to_value(value).expect("Failed to serialize AuthorizationDecision to JSON")
+    }
+}
