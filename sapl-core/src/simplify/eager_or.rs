@@ -24,3 +24,36 @@ pub(crate) fn eager_or(lhs: &mut Arc<Ast>, rhs: &mut Arc<Ast>) -> Option<Ast> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::dec;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_eager_or_boolean() {
+        fn init(lhs: bool, rhs: bool) -> (Arc<Ast>, Arc<Ast>) {
+            (Arc::new(Ast::Boolean(lhs)), Arc::new(Ast::Boolean(rhs)))
+        }
+        let (mut lhs, mut rhs) = init(false, false);
+        assert_eq!(Some(Ast::Boolean(false)), eager_or(&mut lhs, &mut rhs));
+
+        let (mut lhs, mut rhs) = init(false, true);
+        assert_eq!(Some(Ast::Boolean(true)), eager_or(&mut lhs, &mut rhs));
+
+        let (mut lhs, mut rhs) = init(true, false);
+        assert_eq!(Some(Ast::Boolean(true)), eager_or(&mut lhs, &mut rhs));
+
+        let (mut lhs, mut rhs) = init(true, true);
+        assert_eq!(Some(Ast::Boolean(true)), eager_or(&mut lhs, &mut rhs));
+    }
+
+    #[test]
+    fn test_add_incompatible_types_integer_float() {
+        let mut lhs = Arc::new(Ast::Integer(5));
+        let mut rhs = Arc::new(Ast::Float(dec!(3.14)));
+        assert_eq!(None, eager_or(&mut lhs, &mut rhs));
+        assert_eq!(None, eager_or(&mut rhs, &mut lhs));
+    }
+}

@@ -32,7 +32,176 @@ pub(crate) fn eager_and(
         (Err(e), _) => Err(e.clone()),
         (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(
-            "Type mismatch. Eager and operation expects boolean values, but got: {lhs:#?} and {rhs:#?} "
+            "Type mismatch. Eager and operation expects boolean values, but got: {lhs:#?} and {rhs:#?}"
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::dec;
+
+    #[test]
+    fn eager_and_with_boolean() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::Boolean(lhs)), Ok(Val::Boolean(rhs)))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_comp_integer_with_boolean() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::CompInteger(lhs, 42)), Ok(Val::Boolean(rhs)))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_boolean_with_comp_integer() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::Boolean(lhs)), Ok(Val::CompInteger(rhs, 42)))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_comp_interger_with_comp_integer() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::CompInteger(lhs, 23)), Ok(Val::CompInteger(rhs, 42)))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_comp_float_with_boolean() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::CompFloat(lhs, dec!(42))), Ok(Val::Boolean(rhs)))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_boolean_with_comp_float() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (Ok(Val::Boolean(lhs)), Ok(Val::CompFloat(rhs, dec!(42))))
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_comp_float_with_comp_float() {
+        fn init(lhs: bool, rhs: bool) -> (Result<Val, String>, Result<Val, String>) {
+            (
+                Ok(Val::CompFloat(lhs, dec!(23))),
+                Ok(Val::CompFloat(rhs, dec!(42))),
+            )
+        }
+
+        let (lhs, rhs) = init(false, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, false);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(false, true);
+        assert_eq!(Ok(Val::Boolean(false)), eager_and(&lhs, &rhs));
+
+        let (lhs, rhs) = init(true, true);
+        assert_eq!(Ok(Val::Boolean(true)), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_lhs_error() {
+        let lhs = Err("Fault lhs".to_string());
+        let rhs = Ok(Val::Boolean(false));
+
+        assert_eq!(Err("Fault lhs".to_string()), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_rhs_error() {
+        let lhs = Ok(Val::Boolean(true));
+        let rhs = Err("Fault rhs".to_string());
+
+        assert_eq!(Err("Fault rhs".to_string()), eager_and(&lhs, &rhs));
+    }
+
+    #[test]
+    fn eager_and_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Ok(Val::Boolean(true));
+
+        let err = Err(
+            "Type mismatch. Eager and operation expects boolean values, but got: Ok(\n    String(\n        \"something\",\n    ),\n) and Ok(\n    Boolean(\n        true,\n    ),\n)".to_string(),
+        );
+        assert_eq!(err, eager_and(&lhs, &rhs));
     }
 }

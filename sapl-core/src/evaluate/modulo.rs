@@ -21,13 +21,13 @@ pub(crate) fn modulo(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Re
     match (lhs, rhs) {
         (Ok(Integer(l)), Ok(Integer(r))) => {
             if *r == 0 {
-                return Err("Divided by zero".to_string());
+                return Err("Divide by zero".to_string());
             }
             Ok(Integer(l % r))
         }
         (Ok(Float(l)), Ok(Float(r))) => {
             if r.is_zero() {
-                return Err("Divided by zero".to_string());
+                return Err("Divide by zero".to_string());
             }
             Ok(Float(l % r))
         }
@@ -36,5 +36,70 @@ pub(crate) fn modulo(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Re
         (lhs, rhs) => Err(format!(
             "Type mismatch. Modulo operation expects decimal values, but got: {lhs:#?} and {rhs:#?}"
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rust_decimal::{Decimal, dec};
+
+    #[test]
+    fn modulo_integer() {
+        let lhs = Ok(Val::Integer(84));
+        let rhs = Ok(Val::Integer(2));
+
+        assert_eq!(Ok(Val::Integer(0)), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn modulo_integer_by_zero() {
+        let lhs = Ok(Val::Integer(42));
+        let rhs = Ok(Val::Integer(0));
+
+        assert_eq!(Err("Divide by zero".to_string()), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn modulo_float() {
+        let lhs = Ok(Val::Float(dec!(0.2)));
+        let rhs = Ok(Val::Float(dec!(2)));
+
+        assert_eq!(Ok(Val::Float(dec!(0.2))), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn div_float_by_zero() {
+        let lhs = Ok(Val::Float(dec!(3.14)));
+        let rhs = Ok(Val::Float(Decimal::ZERO));
+
+        assert_eq!(Err("Divide by zero".to_string()), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn modulo_lhs_error() {
+        let lhs = Err("Fault lhs".to_string());
+        let rhs = Ok(Val::Integer(42));
+
+        assert_eq!(Err("Fault lhs".to_string()), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn modulo_rhs_error() {
+        let lhs = Ok(Val::Integer(42));
+        let rhs = Err("Fault rhs".to_string());
+
+        assert_eq!(Err("Fault rhs".to_string()), modulo(&lhs, &rhs));
+    }
+
+    #[test]
+    fn modulo_error() {
+        let lhs = Ok(Val::String("something".to_string()));
+        let rhs = Ok(Val::Integer(42));
+
+        let err = Err(
+            "Type mismatch. Modulo operation expects decimal values, but got: Ok(\n    String(\n        \"something\",\n    ),\n) and Ok(\n    Integer(\n        42,\n    ),\n)".to_string(),
+        );
+        assert_eq!(err, modulo(&lhs, &rhs));
     }
 }
