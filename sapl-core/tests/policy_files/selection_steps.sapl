@@ -1,0 +1,24 @@
+policy "Different selection steps"
+permit
+where
+  action.http.contextPath == "/enforcetilldeny";
+  action.http["contextPath"] == "/enforcetilldeny";
+  action.http['contextPath'] == "/enforcetilldeny";
+
+  action.array1[0] == "/enforcetilldeny";
+  action.array1[-3] == "/enforcetilldeny";
+
+  action..contextPath == "/enforcetilldeny";
+  action..["contextPath"] == "/enforcetilldeny";
+  action..['contextPath'] == "/enforcetilldeny";
+  action..[42] == "/enforcetilldeny";
+
+  action.array2[(3+1)] == "/enforcetilldeny";
+
+  action.array3[2,3,-4,5,6] == "/enforcetilldeny";
+
+  action.array3["key","array2"] == "/enforcetilldeny";
+
+  object.array4[?(@>2)] == "/enforcetilldeny";
+
+  object.array5[0:-2:4]  == 42;

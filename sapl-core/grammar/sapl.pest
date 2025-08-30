@@ -156,7 +156,9 @@ basic_environment_head_attribute = { "|<" ~ function_identifier ~ arguments? ~ "
 
 basic_identifier = { sapl_id ~ step* }
 
-basic_relative = _{ "@" ~ step* }
+basic_relative = _{ basic_relative_step ~ step* }
+
+basic_relative_step = { "@" }
 
 function_identifier = { id ~ ("." ~ sapl_id)* }
 
@@ -187,12 +189,12 @@ undefined_literal = { "undefined" }
 step = _{
     "." ~ (key_step | escaped_key_step | wildcard_step | attribute_finder_step | head_attribute_finder_step)
   | "[" ~ subscript ~ "]"
-  | ".." ~ (recursive_key_step | recursive_wildcard_step | recursive_index_step)
+  | ".." ~ (recursive_key_step_option | recursive_wildcard_step | recursive_index_step_option)
 }
 
 key_step = @{ sapl_id }
 
-escaped_key_step = @{ string }
+escaped_key_step = @{ string | single_quotation_string }
 
 wildcard_step = { "*" }
 
@@ -200,13 +202,37 @@ attribute_finder_step = { "<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
 
 head_attribute_finder_step = @{ "|<" ~ sapl_id ~ ("." ~ sapl_id)* ~ arguments? ~ ">" }
 
-recursive_key_step = @{ sapl_id | "[" ~ string ~ "]" }
+recursive_key_step_option = _{ recursive_key_step | "[" ~ recursive_key_step ~ "]" }
+
+recursive_key_step = @{ (sapl_id | string | single_quotation_string ) }
 
 recursive_wildcard_step = @{ "*" | "[" ~ "*" ~ "]" }
 
-recursive_index_step = @{ "[" ~ signed_number ~ "]" }
+recursive_index_step_option = _{ "[" ~ recursive_index_step ~ "]" }
 
-subscript = { string | "*" | signed_number | signed_number? ~ ":" ~ signed_number? ~ (":" ~ signed_number)? | "(" ~ expression ~ ")" | "?" ~ "(" ~ expression ~ ")" | signed_number ~ ("," ~ signed_number)* | string ~ ("," ~ string)* }
+recursive_index_step = @{ signed_number }
+
+subscript = _{ attribute_union_step
+		| escaped_key_step
+		| wildcard_step
+                | array_slicing_step
+                | condition_step
+                | expression_step
+                | index_union_step
+                | index_step
+                }
+
+index_step = @{ signed_number }
+
+array_slicing_step = { signed_number ~ ":" ~ signed_number ~ ( ":" ~ signed_number )?}
+
+expression_step = { "(" ~ condition ~ ")" }
+
+condition_step = { "?" ~ "(" ~ condition ~ ")" }
+
+index_union_step = { signed_number ~ "," ~ signed_number ~ ("," ~ signed_number)* }
+
+attribute_union_step = { string ~ "," ~ string ~ ("," ~ string)* }
 
 signed_number = @{ subtract? ~ JSONNUMBER }
 
@@ -217,6 +243,8 @@ basic_identifier_expression = { "subject" | "action" | "resource" | "environment
 id = @{ "^"? ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHA | "_" | "$" | ASCII_DIGIT)* }
 
 string = @{ "\"" ~ ("\\" | (!"\"" ~ ANY))* ~ "\"" }
+
+single_quotation_string = @{ "'" ~ ("\\" | (!"'" ~ ANY))* ~ "'" }
 
 FILTER = { "|-" }
 

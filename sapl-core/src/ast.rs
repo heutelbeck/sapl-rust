@@ -66,11 +66,19 @@ pub enum Ast {
     String(String),
     Id(String),
     KeyStep(String),
+    IndexStep(i64),
+    ExpressionStep(Arc<Ast>),
+    ConditionStep(Arc<Ast>),
+    EscapedKeyStep(String),
     RecursiveKeyStep(String),
     RecursiveIndexStep(String),
+    IndexUnionStep(Arc<[Ast]>),
+    AttributeUnionStep(Arc<[Ast]>),
+    ArraySlicingStep(Arc<[Ast]>),
     RecursiveWildcardStep,
     AttributeFinderStep(String),
     HeadAttributeFinderStep(String),
+    BasicRelativeStep,
     Concat,
     Div,
     Null,
@@ -119,11 +127,19 @@ impl Clone for Ast {
             Ast::String(val) => Ast::String(val.clone()),
             Ast::Id(val) => Ast::Id(val.clone()),
             Ast::KeyStep(val) => Ast::KeyStep(val.clone()),
+            Ast::IndexStep(val) => Ast::IndexStep(*val),
+            Ast::IndexUnionStep(expr) => Ast::IndexUnionStep(Arc::clone(expr)),
+            Ast::AttributeUnionStep(expr) => Ast::AttributeUnionStep(Arc::clone(expr)),
+            Ast::ArraySlicingStep(expr) => Ast::ArraySlicingStep(Arc::clone(expr)),
+            Ast::EscapedKeyStep(val) => Ast::EscapedKeyStep(val.clone()),
+            Ast::ExpressionStep(val) => Ast::ExpressionStep(val.clone()),
+            Ast::ConditionStep(val) => Ast::ConditionStep(val.clone()),
             Ast::RecursiveKeyStep(val) => Ast::RecursiveKeyStep(val.clone()),
             Ast::RecursiveIndexStep(val) => Ast::RecursiveIndexStep(val.clone()),
             Ast::RecursiveWildcardStep => Ast::RecursiveWildcardStep,
             Ast::AttributeFinderStep(val) => Ast::AttributeFinderStep(val.clone()),
             Ast::HeadAttributeFinderStep(val) => Ast::HeadAttributeFinderStep(val.clone()),
+            Ast::BasicRelativeStep => Ast::BasicRelativeStep,
             Ast::Concat => Ast::Concat,
             Ast::Div => Ast::Div,
             Ast::Null => Ast::Null,
@@ -172,6 +188,7 @@ impl Ast {
 
         fn parse_basics(pair: pest::iterators::Pair<Rule>) -> Ast {
             match pair.as_rule() {
+                Rule::condition => Ast::parse(pair.into_inner()),
                 Rule::basic_identifier_expression => Ast::BasicIdentifierExpression(Arc::new(
                     BasicIdentifierExpression::new(pair.as_str()),
                 )),
@@ -201,7 +218,24 @@ impl Ast {
                 )),
                 Rule::signed_number => Ast::SignedNumber(pair.as_str().to_string()),
                 Rule::key_step => Ast::KeyStep(pair.as_str().to_string()),
+                Rule::index_step => Ast::IndexStep(pair.as_str().trim().parse().unwrap()),
+                Rule::expression_step => {
+                    Ast::ExpressionStep(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
+                }
+                Rule::condition_step => {
+                    Ast::ConditionStep(Arc::new(parse_basics(pair.into_inner().next().unwrap())))
+                }
+                Rule::index_union_step => Ast::IndexUnionStep(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
+                Rule::attribute_union_step => Ast::AttributeUnionStep(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
+                Rule::array_slicing_step => Ast::ArraySlicingStep(Arc::from(
+                    pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
+                )),
                 Rule::recursive_key_step => Ast::RecursiveKeyStep(pair.as_str().to_string()),
+                Rule::escaped_key_step => Ast::EscapedKeyStep(pair.as_str().to_string()),
                 Rule::recursive_index_step => Ast::RecursiveIndexStep(pair.as_str().to_string()),
                 Rule::recursive_wildcard_step => Ast::RecursiveWildcardStep,
                 Rule::attribute_finder_step => Ast::AttributeFinderStep(pair.as_str().to_string()),
@@ -214,11 +248,12 @@ impl Ast {
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::integer => Ast::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::id => Ast::Id(pair.as_str().to_string()),
+                Rule::basic_relative_step => Ast::BasicRelativeStep,
                 Rule::div => Ast::Div,
                 Rule::null_literal => Ast::Null,
                 Rule::undefined_literal => Ast::Undefined,
                 rule => unreachable!(
-                    "Ast::parse_basic_identifier expected basic_identifier_expression, key_step, recursive_key_step, or attribute_finder_step, found {:?}",
+                    "Ast::parse_basics expected basic_identifier_expression, key_step, recursive_key_step, or attribute_finder_step, found {:?}",
                     rule
                 ),
             }
@@ -237,6 +272,7 @@ impl Ast {
             Rule::boolean_literal => Ast::Boolean(primary.as_str().parse().unwrap()),
             Rule::integer => Ast::Integer(primary.as_str().parse().unwrap()),
             Rule::float => Ast::Float(primary.as_str().parse().unwrap()),
+            Rule::basic_relative_step => Ast::BasicRelativeStep,
             rule => unreachable!("Ast::parse expected pairs, string, boolean_literal, integer or float, found {:?}", rule),
         })
         .map_infix(|lhs, op, rhs| {
@@ -640,6 +676,9 @@ impl Iterator for ExprIter {
                 | Ast::BasicValue(expr)
                 | Ast::BasicFunction(expr)
                 | Ast::BasicIdentifier(expr)
+                | Ast::IndexUnionStep(expr)
+                | Ast::AttributeUnionStep(expr)
+                | Ast::ArraySlicingStep(expr)
                 | Ast::SaplPairs(expr) => {
                     for elem in expr.iter() {
                         self.stack.push_back(Arc::new(elem.clone()));
@@ -650,10 +689,14 @@ impl Iterator for ExprIter {
                 | Ast::LogicalNot(expr)
                 | Ast::Arguments(expr)
                 | Ast::Subscript(expr)
+                | Ast::ExpressionStep(expr)
+                | Ast::ConditionStep(expr)
                 | Ast::BasicEnvironmentHeadAttribute(expr) => {
                     self.stack.push_back(Arc::clone(expr));
                 }
                 Ast::KeyStep(_)
+                | Ast::IndexStep(_)
+                | Ast::EscapedKeyStep(_)
                 | Ast::RecursiveKeyStep(_)
                 | Ast::RecursiveIndexStep(_)
                 | Ast::RecursiveWildcardStep
@@ -666,6 +709,7 @@ impl Iterator for ExprIter {
                 | Ast::SignedNumber(_)
                 | Ast::String(_)
                 | Ast::Id(_)
+                | Ast::BasicRelativeStep
                 | Ast::Concat
                 | Ast::Div
                 | Ast::Null
@@ -861,6 +905,83 @@ mod tests {
         Rule::equal,
         Rule::boolean_literal
     );
+
+    #[test]
+    fn parse_escaped_key_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "[\"key\"]"),
+            Rule::escaped_key_step,
+        );
+        assert_eq!(parse_as_rule(Rule::step, "['key']"), Rule::escaped_key_step,);
+    }
+
+    #[test]
+    fn parse_index_step() {
+        assert_eq!(parse_as_rule(Rule::step, "[0]"), Rule::index_step,);
+        assert_eq!(parse_as_rule(Rule::step, "[-3]"), Rule::index_step,);
+    }
+
+    #[test]
+    fn parse_recursive_key_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "..contextPath"),
+            Rule::recursive_key_step,
+        );
+        assert_eq!(
+            parse_as_rule(Rule::step, "..[\"contextPath\"]"),
+            Rule::recursive_key_step,
+        );
+        assert_eq!(
+            parse_as_rule(Rule::step, "..['contextPath']"),
+            Rule::recursive_key_step,
+        );
+    }
+
+    #[test]
+    fn parse_recursive_index_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "..[0]"),
+            Rule::recursive_index_step,
+        );
+    }
+
+    #[test]
+    fn parse_expression_step() {
+        assert_eq!(parse_as_rule(Rule::step, "[(3+2)]"), Rule::expression_step,);
+    }
+
+    #[test]
+    fn parse_index_union_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "[1,2,-3,5]"),
+            Rule::index_union_step,
+        );
+    }
+
+    #[test]
+    fn parse_attribute_union_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "[\"key\", \"value\"]"),
+            Rule::attribute_union_step,
+        );
+    }
+
+    #[test]
+    fn parse_condition_step() {
+        assert_eq!(parse_as_rule(Rule::step, "[?(@>2)]"), Rule::condition_step,);
+    }
+
+    #[test]
+    fn parse_array_slicing_step() {
+        assert_eq!(
+            parse_as_rule(Rule::step, "[0:-2:4]"),
+            Rule::array_slicing_step,
+        );
+        assert_eq!(
+            parse_as_rule(Rule::step, "[0:-2]"),
+            Rule::array_slicing_step,
+        );
+    }
 
     fn parse(rule: Rule, input: &str) -> Result<Pairs<'_, Rule>, Box<pest::error::Error<Rule>>> {
         Ok(SaplParser::parse(rule, input)?)
