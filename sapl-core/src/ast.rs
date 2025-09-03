@@ -1,4 +1,4 @@
-/*
+/*ast
     Copyright 2025 Stefan Weng
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -19,17 +19,19 @@ use crate::PRATT_PARSER;
 use crate::Rule;
 use crate::StreamSapl;
 use crate::Val;
-use crate::authorization_subscription::AuthorizationSubscription;
 use crate::basic_identifier_expression::BasicIdentifierExpression;
 use crate::once_val;
 use crate::pip::Time;
 
 use futures::Stream;
 use rust_decimal::Decimal;
-use std::collections::VecDeque;
-use std::fmt::Display;
-use std::pin::Pin;
-use std::sync::Arc;
+use serde_json::Value;
+use std::{
+    collections::VecDeque,
+    fmt::Display,
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 
 #[derive(PartialEq, Debug)]
 pub enum Ast {
@@ -75,6 +77,7 @@ pub enum Ast {
     IndexUnionStep(Arc<[Ast]>),
     AttributeUnionStep(Arc<[Ast]>),
     ArraySlicingStep(Arc<[Ast]>),
+    WildcardStep,
     RecursiveWildcardStep,
     AttributeFinderStep(String),
     HeadAttributeFinderStep(String),
@@ -136,6 +139,7 @@ impl Clone for Ast {
             Ast::ConditionStep(val) => Ast::ConditionStep(val.clone()),
             Ast::RecursiveKeyStep(val) => Ast::RecursiveKeyStep(val.clone()),
             Ast::RecursiveIndexStep(val) => Ast::RecursiveIndexStep(val.clone()),
+            Ast::WildcardStep => Ast::WildcardStep,
             Ast::RecursiveWildcardStep => Ast::RecursiveWildcardStep,
             Ast::AttributeFinderStep(val) => Ast::AttributeFinderStep(val.clone()),
             Ast::HeadAttributeFinderStep(val) => Ast::HeadAttributeFinderStep(val.clone()),
@@ -235,8 +239,11 @@ impl Ast {
                     pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
                 )),
                 Rule::recursive_key_step => Ast::RecursiveKeyStep(pair.as_str().to_string()),
-                Rule::escaped_key_step => Ast::EscapedKeyStep(pair.as_str().to_string()),
+                Rule::escaped_key_step => {
+                    Ast::EscapedKeyStep(Ast::clean_string(pair.as_str().trim()))
+                }
                 Rule::recursive_index_step => Ast::RecursiveIndexStep(pair.as_str().to_string()),
+                Rule::wildcard_step => Ast::WildcardStep,
                 Rule::recursive_wildcard_step => Ast::RecursiveWildcardStep,
                 Rule::attribute_finder_step => Ast::AttributeFinderStep(pair.as_str().to_string()),
                 Rule::head_attribute_finder_step => {
@@ -329,14 +336,21 @@ impl Ast {
         }
     }
 
+    fn clean_string(src: &str) -> String {
+        let mut s = src.to_string();
+        s.retain(|c| c != '\"');
+        s.retain(|c| c != '\'');
+        s
+    }
+
     fn new_string(src: &str) -> Ast {
         let mut s = src.to_string();
         s.retain(|c| c != '\"');
         Ast::String(s)
     }
 
-    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> Result<bool, String> {
-        match self.evaluate_inner(auth_subscription) {
+    pub fn evaluate(&self, variable_context: Arc<RwLock<Value>>) -> Result<bool, String> {
+        match self.evaluate_inner(variable_context) {
             Ok(Val::Boolean(b)) => Ok(b),
             Ok(Val::CompFloat(b, _)) => Ok(b),
             Ok(Val::CompInteger(b, _)) => Ok(b),
@@ -346,10 +360,7 @@ impl Ast {
         }
     }
 
-    pub fn evaluate_inner(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Result<Val, String> {
+    pub fn evaluate_inner(&self, variable_context: Arc<RwLock<Value>>) -> Result<Val, String> {
         use self::Ast::*;
         use crate::evaluate::*;
 
@@ -358,72 +369,74 @@ impl Ast {
             Integer(i) => Ok(Val::Integer(*i)),
             Float(i) => Ok(Val::Float(*i)),
             String(s) => Ok(Val::String(s.clone())),
-            BasicFunction(bf) => basic_function(bf, auth_subscription),
-            BasicIdentifier(bi) => basic_identifier(bi, auth_subscription),
-            SaplPairs(pairs) => sapl_pairs(pairs, auth_subscription),
-            SaplPair { lhs, rhs } => sapl_pair(lhs, rhs, auth_subscription),
-            Array(a) => array(a, auth_subscription),
+            Id(s) => Ok(Val::String(s.clone())),
+            VariableAssignment(va) => variable_assignment(va, variable_context),
+            BasicFunction(bf) => basic_function(bf, variable_context),
+            BasicIdentifier(bi) => basic_identifier(bi, variable_context),
+            SaplPairs(pairs) => sapl_pairs(pairs, variable_context),
+            SaplPair { lhs, rhs } => sapl_pair(lhs, rhs, variable_context),
+            Array(a) => array(a, variable_context),
             Expr { lhs, op, rhs } => match op {
                 Op::Addition => add(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Comparison => panic!(),
                 Op::Division => div(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::EagerAnd => eager_and(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::EagerOr => eager_or(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Equal => eq(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::ExclusiveOr => xor(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Filter => panic!(),
                 Op::Greater => ge(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::GreaterEqual => ge_eq(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::LazyAnd => panic!(),
                 Op::LazyOr => panic!(),
                 Op::Less => le(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::LessEqual => le_eq(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Modulo => modulo(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Multiplication => mul(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::NotEqual => non_eq(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
                 Op::Regex => panic!(),
                 Op::Subtract => sub(
-                    &lhs.evaluate_inner(auth_subscription),
-                    &rhs.evaluate_inner(auth_subscription),
+                    &lhs.evaluate_inner(variable_context.clone()),
+                    &rhs.evaluate_inner(variable_context.clone()),
                 ),
             },
             other => Err(format!(
@@ -566,72 +579,72 @@ impl<S> StreamSapl for S where S: Stream<Item = Result<Val, String>> + std::mark
 impl Eval for Ast {
     fn eval(
         &self,
-        auth_subscription: &AuthorizationSubscription,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>> {
         use crate::evaluate::*;
 
         match self {
             Ast::Expr { lhs, op, rhs } => match op {
                 Op::Addition => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), add),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), add),
                 ),
                 Op::Comparison => panic!(),
                 Op::Division => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), div),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), div),
                 ),
                 Op::EagerAnd => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), eager_and),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), eager_and),
                 ),
                 Op::EagerOr => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), eager_or),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), eager_or),
                 ),
                 Op::Equal => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), eq),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), eq),
                 ),
                 Op::ExclusiveOr => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), xor),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), xor),
                 ),
                 Op::Filter => panic!(),
                 Op::Greater => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), ge),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), ge),
                 ),
                 Op::GreaterEqual => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), ge_eq),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), ge_eq),
                 ),
                 Op::LazyAnd => panic!(),
                 Op::LazyOr => panic!(),
                 Op::Less => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), le),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), le),
                 ),
                 Op::LessEqual => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), le_eq),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), le_eq),
                 ),
                 Op::Modulo => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), modulo),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), modulo),
                 ),
                 Op::Multiplication => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), mul),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), mul),
                 ),
                 Op::NotEqual => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), non_eq),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), non_eq),
                 ),
                 Op::Regex => panic!(),
                 Op::Subtract => Box::pin(
-                    lhs.eval(auth_subscription)
-                        .eval_op(rhs.eval(auth_subscription), sub),
+                    lhs.eval(auth_subscription.clone())
+                        .eval_op(rhs.eval(auth_subscription.clone()), sub),
                 ),
             },
             Ast::BasicIdentifier(bi) => Box::pin(once_val(
@@ -699,6 +712,7 @@ impl Iterator for ExprIter {
                 | Ast::EscapedKeyStep(_)
                 | Ast::RecursiveKeyStep(_)
                 | Ast::RecursiveIndexStep(_)
+                | Ast::WildcardStep
                 | Ast::RecursiveWildcardStep
                 | Ast::AttributeFinderStep(_)
                 | Ast::HeadAttributeFinderStep(_)
@@ -806,7 +820,7 @@ impl Display for ValidationErr {
 
 #[cfg(test)]
 mod tests {
-    use crate::SaplParser;
+    use crate::{AuthorizationSubscription, SaplParser};
     use pest::{Parser, iterators::Pairs};
     use tokio_stream::StreamExt;
 
@@ -1027,8 +1041,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
     }
@@ -1039,8 +1054,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1051,24 +1067,27 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "true & false")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "true & true & true")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1079,24 +1098,27 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "false | false")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "false | false | true")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1107,8 +1129,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1119,8 +1142,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1131,24 +1155,27 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 < 10 < 15 < 20")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1159,8 +1186,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1171,8 +1199,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1183,24 +1212,27 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "5 + 20 < 50 + 10")
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1211,8 +1243,9 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription1());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1226,8 +1259,77 @@ mod tests {
         .unwrap()
         .next()
         .unwrap();
-        let expr = Ast::parse(pair.into_inner())
-            .evaluate(&AuthorizationSubscription::new_example_subscription2());
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription2(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_key_step1() {
+        let pair = SaplParser::parse(Rule::target_expression, "action.key == \"value1\"")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_key_step2() {
+        let pair = SaplParser::parse(Rule::target_expression, "action[\"key\"] == \"value1\"")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_key_step3() {
+        let pair = SaplParser::parse(Rule::target_expression, "action[\'key\'] == \"value1\"")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_key_index_step1() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action.array1[0].key == \"value2\"",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_negativ_key_index_step() {
+        let pair = SaplParser::parse(Rule::target_expression, "action.array2[-3] == 3")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
         assert!(expr.is_ok());
         assert!(expr.unwrap());
     }
@@ -1413,9 +1515,9 @@ mod tests {
             .next()
             .unwrap();
 
-        let mut stream = Ast::parse(pair.into_inner())
-            .eval(&AuthorizationSubscription::new_example_subscription1());
-
+        let mut stream = Ast::parse(pair.into_inner()).eval(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription3().into(),
+        )));
         assert_eq!(stream.next().await, Some(Ok(Val::Boolean(true))));
     }
 
@@ -1426,8 +1528,9 @@ mod tests {
             .next()
             .unwrap();
 
-        let mut stream = Ast::parse(pair.into_inner())
-            .eval(&AuthorizationSubscription::new_example_subscription1());
+        let mut stream = Ast::parse(pair.into_inner()).eval(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription3().into(),
+        )));
 
         assert_eq!(stream.next().await, Some(Ok(Val::CompInteger(true, 42))));
     }
@@ -1439,8 +1542,9 @@ mod tests {
             .next()
             .unwrap();
 
-        let mut stream = Ast::parse(pair.into_inner())
-            .eval(&AuthorizationSubscription::new_example_subscription1());
+        let mut stream = Ast::parse(pair.into_inner()).eval(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription3().into(),
+        )));
 
         assert_eq!(stream.next().await, Some(Ok(Val::Integer(82))));
     }

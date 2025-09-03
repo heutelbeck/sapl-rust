@@ -14,16 +14,18 @@
     under the License.
 */
 
-use crate::authorization_subscription::AuthorizationSubscription;
 use crate::{AuthorizationDecision, Entitlement, Policy, Val};
 use futures::Stream;
 use log::error;
 use pin_project_lite::pin_project;
 use serde::Serialize;
-use std::fmt::Display;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use serde_json::Value;
+use std::{
+    fmt::Display,
+    pin::Pin,
+    sync::{Arc, RwLock},
+    task::{Context, Poll},
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum Decision {
@@ -64,7 +66,7 @@ pin_project! {
         #[pin]
         a: T,
         policy: Policy,
-        auth_subscription: Arc<AuthorizationSubscription>,
+        variable_context: Arc<RwLock<Value>>,
     }
 }
 
@@ -72,7 +74,7 @@ impl<T> DecisionStream<T> {
     pub(super) fn new(
         a: T,
         policy: Policy,
-        auth_subscription: Arc<AuthorizationSubscription>,
+        variable_context: Arc<RwLock<Value>>,
     ) -> DecisionStream<T>
     where
         T: Stream<Item = Result<Val, String>>,
@@ -80,7 +82,7 @@ impl<T> DecisionStream<T> {
         DecisionStream {
             a,
             policy,
-            auth_subscription,
+            variable_context,
         }
     }
 }
@@ -108,15 +110,18 @@ where
                     match &self.policy.entitlement {
                         Entitlement::Permit => Ready(Some(AuthorizationDecision::new(
                             Decision::entitlement(&self.policy.entitlement),
-                            self.policy.evaluate_transformation(&self.auth_subscription),
-                            self.policy.evaluate_obligation(&self.auth_subscription),
-                            self.policy.evaluate_advice(&self.auth_subscription),
+                            self.policy
+                                .evaluate_transformation(self.variable_context.clone()),
+                            self.policy
+                                .evaluate_obligation(self.variable_context.clone()),
+                            self.policy.evaluate_advice(self.variable_context.clone()),
                         ))),
                         Entitlement::Deny => Ready(Some(AuthorizationDecision::new(
                             Decision::entitlement(&self.policy.entitlement),
                             None,
-                            self.policy.evaluate_obligation(&self.auth_subscription),
-                            self.policy.evaluate_advice(&self.auth_subscription),
+                            self.policy
+                                .evaluate_obligation(self.variable_context.clone()),
+                            self.policy.evaluate_advice(self.variable_context.clone()),
                         ))),
                     }
                 }

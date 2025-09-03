@@ -14,18 +14,18 @@
     under the License.
 */
 
-use crate::{Ast, AuthorizationSubscription, Val};
+use crate::{Ast, Val};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub(crate) fn sapl_pair(
     lhs: &Arc<Ast>,
     rhs: &Arc<[Ast]>,
-    auth_subscription: &AuthorizationSubscription,
+    variable_context: Arc<RwLock<Value>>,
 ) -> Result<Val, String> {
-    if let Ok(Val::String(key)) = lhs.evaluate_inner(auth_subscription) {
+    if let Ok(Val::String(key)) = lhs.evaluate_inner(variable_context.clone()) {
         return Ok(Val::Json(
-            json!({key: extract_string_from_saplpair_rhs(rhs, auth_subscription)}),
+            json!({key: extract_string_from_saplpair_rhs(rhs, variable_context)}),
         ));
     }
 
@@ -36,7 +36,7 @@ pub(crate) fn sapl_pair(
 
 fn extract_string_from_saplpair_rhs(
     ast: &Arc<[Ast]>,
-    auth_subscription: &AuthorizationSubscription,
+    variable_context: Arc<RwLock<Value>>,
 ) -> Value {
     use crate::evaluate::basic_identifier;
 
@@ -44,12 +44,12 @@ fn extract_string_from_saplpair_rhs(
     for item in ast.iter() {
         match item {
             Ast::BasicIdentifier(bi) => {
-                if let Ok(Val::String(s)) = basic_identifier(bi, auth_subscription) {
+                if let Ok(Val::String(s)) = basic_identifier(bi, variable_context.clone()) {
                     result.push_str(&s);
                 }
             }
             Ast::Array(_) => {
-                if let Ok(Val::Json(obj)) = item.evaluate_inner(auth_subscription) {
+                if let Ok(Val::Json(obj)) = item.evaluate_inner(variable_context.clone()) {
                     return obj;
                 }
             }

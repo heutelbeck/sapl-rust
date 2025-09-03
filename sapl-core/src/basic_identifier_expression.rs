@@ -15,10 +15,13 @@
 */
 
 use serde_json::Value;
-use std::collections::VecDeque;
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    sync::{Arc, RwLock},
+};
 
-use crate::authorization_subscription::AuthorizationSubscription;
+use crate::evaluate::key_step;
+use crate::{Ast, evaluate::wildcard_step};
 
 #[derive(PartialEq, Debug)]
 pub enum BasicIdentifierExpression {
@@ -43,12 +46,22 @@ impl BasicIdentifierExpression {
         }
     }
 
-    pub fn evaluate(
-        &self,
-        keys: &mut VecDeque<String>,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Value {
-        auth_subscription.get_value(self, keys)
+    pub fn evaluate(&self, keys: &[Ast], variable_context: Arc<RwLock<Value>>) -> Value {
+        let src;
+        if let Ok(var) = variable_context.read() {
+            src = var.get(self.to_string()).unwrap().clone();
+        } else {
+            return Value::Null;
+        };
+
+        match keys.first() {
+            Some(Ast::KeyStep(s)) | Some(Ast::EscapedKeyStep(s)) => {
+                key_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
+            }
+            Some(Ast::WildcardStep) => wildcard_step::evaluate(keys.get(1..).unwrap_or(&[]), &src),
+            None => src.clone(),
+            _ => Value::Null,
+        }
     }
 }
 

@@ -18,7 +18,7 @@
 mod file_reader;
 mod pdp_config;
 
-//Re-export types from pest-parser that users need
+//Re-export types from sapl-core that users need
 pub use crate::file_reader::*;
 pub use sapl_core::authorization_subscription::AuthorizationSubscription;
 
@@ -64,7 +64,6 @@ impl Pdp {
         use CombiningAlgorithm::*;
 
         // Acquire read locks to access the inner data
-        // TODO check if files gets updated how to handle this?
         let config_guard = self.config.read().expect("Failed to read config lock");
         let policies_guard = self.policies.read().expect("Failed to read policies lock");
         let auth_sub = Arc::new(auth_sub);

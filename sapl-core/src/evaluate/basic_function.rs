@@ -14,18 +14,20 @@
     under the License.
 */
 
+use serde_json::Value;
+
 use crate::{
-    Ast, AuthorizationSubscription, Val,
+    Ast, Val,
     functions::temporal_function_library::{
         day_of_week, day_of_year, hour_of, minute_of, second_of, week_of_year,
     },
     pip::Time,
 };
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub(crate) fn basic_function(
     bf: &Arc<[Ast]>,
-    _auth_subscription: &AuthorizationSubscription,
+    _variable_context: Arc<RwLock<Value>>,
 ) -> Result<Val, String> {
     match bf.first() {
         Some(fi) => evaluate_function_identifier(
@@ -112,6 +114,7 @@ fn evaluate_arguments(input: &Ast) -> Result<Val, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::AuthorizationSubscription;
 
     fn get_basic_function_time_req(first: &str, second: &str) -> Arc<[Ast]> {
         let fi = Ast::FunctionIdentifier(Arc::new([
@@ -126,7 +129,9 @@ mod tests {
     fn basic_function_call(input: Arc<[Ast]>) -> Result<Val, String> {
         basic_function(
             &input,
-            &AuthorizationSubscription::new_example_subscription1(),
+            Arc::new(RwLock::new(
+                AuthorizationSubscription::new_example_subscription1(),
+            )),
         )
     }
 
@@ -197,7 +202,9 @@ mod tests {
 
         let result = basic_function(
             &Arc::from([fi, arg]),
-            &AuthorizationSubscription::new_example_subscription1(),
+            Arc::new(RwLock::new(
+                AuthorizationSubscription::new_example_subscription1(),
+            )),
         );
         let second_now = second_of(Time::now());
         assert_eq!(second_now, result);

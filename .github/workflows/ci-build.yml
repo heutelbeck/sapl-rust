@@ -58,7 +58,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Run tests
-        run: cargo test
+        run: RUST_LOG=error cargo test
   fmt:
     name: Rustfmt
 

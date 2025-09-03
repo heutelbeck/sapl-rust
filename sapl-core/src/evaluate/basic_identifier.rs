@@ -15,33 +15,25 @@
 */
 
 use crate::Ast;
-use crate::AuthorizationSubscription;
 use crate::Val;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
 use serde_json::Value;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub(crate) fn basic_identifier(
     bi: &Arc<[Ast]>,
-    auth_subscription: &AuthorizationSubscription,
+    variable_context: Arc<RwLock<Value>>,
 ) -> Result<Val, String> {
     use self::Ast::*;
 
-    let sapl_id = bi.first();
-
-    let mut keys: VecDeque<_> = bi
-        .iter()
-        .skip(1)
-        .filter_map(|e| match e {
-            KeyStep(s) => Some(s.to_owned()),
-            _ => None,
-        })
-        .collect();
-
-    let result: Value = match sapl_id {
-        Some(BasicIdentifierExpression(bie)) => bie.evaluate(&mut keys, auth_subscription),
+    let result: Value = match bi.first() {
+        Some(BasicIdentifierExpression(bie)) => {
+            bie.evaluate(bi.get(1..).unwrap_or(&[]), variable_context)
+        }
+        Some(Id(id)) => {
+            crate::evaluate::id::evaluate(id, bi.get(1..).unwrap_or(&[]), variable_context)
+        }
         _ => Value::Null,
     };
 
@@ -55,8 +47,8 @@ pub(crate) fn basic_identifier(
             }
         }
         Value::Bool(b) => Ok(Val::Boolean(b)),
-        Value::Array(a) => Ok(Val::String(format!("{a:#?}"))),
-        Value::Null => Ok(Val::String("".to_string())),
-        Value::Object(o) => Ok(Val::String(format!("{o:#?}"))),
+        Value::Array(_) => Ok(Val::Json(result)),
+        Value::Null => Ok(Val::Json(Value::Null)),
+        Value::Object(_) => Ok(Val::Json(result)),
     }
 }

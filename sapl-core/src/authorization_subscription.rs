@@ -14,11 +14,11 @@
     under the License.
 */
 use crate::basic_identifier_expression::BasicIdentifierExpression;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::VecDeque;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AuthorizationSubscription {
     subject: Value,
     action: Value,
@@ -27,7 +27,20 @@ pub struct AuthorizationSubscription {
 }
 
 impl AuthorizationSubscription {
-    pub fn new_example_subscription1() -> Self {
+    #[cfg(test)]
+    pub fn new_example_subscription1() -> Value {
+        serde_json::from_str(r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#)
+            .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn new_example_subscription2() -> Value {
+        serde_json::from_str(r#"{ "subject": "WILLI", "action": { "name": "Apple", "color": "Red", "nutrients": { "calories": "low" }}, "resource": "something"}"#)
+            .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn new_example_subscription3() -> Self {
         AuthorizationSubscription {
             subject: serde_json::from_str(r#""WILLI""#).unwrap_or_default(),
             action: serde_json::from_str(r#""read""#).unwrap_or_default(),
@@ -36,7 +49,8 @@ impl AuthorizationSubscription {
         }
     }
 
-    pub fn new_example_subscription2() -> Self {
+    #[cfg(test)]
+    pub fn new_example_subscription4() -> Self {
         AuthorizationSubscription {
             subject: serde_json::from_str(r#""WILLI""#).unwrap_or_default(),
             action: serde_json::from_str(
@@ -45,6 +59,25 @@ impl AuthorizationSubscription {
             .unwrap_or_default(),
             resource: serde_json::from_str(r#""something""#).unwrap_or_default(),
             environment: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_example_subscription5() -> Value {
+        serde_json::from_str(r#"{ "subject": "WILLI", "action": { "key": "value1", "array1": [ { "key": "value2" }, { "key": "value3"} ], "array2": [1,2,3,4,5] }, "resource": "something"}"#)
+            .unwrap_or_default()
+    }
+
+    pub fn get(&self, bie: &BasicIdentifierExpression) -> Value {
+        use BasicIdentifierExpression::*;
+        match bie {
+            Subject => self.subject.clone(),
+            Action => self.action.clone(),
+            Resource => self.resource.clone(),
+            Environment => match &self.environment {
+                Some(env) => env.clone(),
+                None => Value::Null,
+            },
         }
     }
 
@@ -72,13 +105,25 @@ impl AuthorizationSubscription {
     }
 }
 
+impl From<AuthorizationSubscription> for Value {
+    fn from(auth_sub: AuthorizationSubscription) -> Value {
+        serde_json::to_value(auth_sub).expect("Failed to convert to Value")
+    }
+}
+
+impl From<&AuthorizationSubscription> for Value {
+    fn from(auth_sub: &AuthorizationSubscription) -> Value {
+        serde_json::to_value(auth_sub).expect("Failed to convert to Value")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn action_read_value_top_level() {
-        let auth_sub = AuthorizationSubscription::new_example_subscription1();
+        let auth_sub = AuthorizationSubscription::new_example_subscription3();
         let mut keys = VecDeque::new();
         assert_eq!(
             Value::String("read".to_string()),
@@ -88,7 +133,7 @@ mod tests {
 
     #[test]
     fn action_read_nested_value() {
-        let auth_sub = AuthorizationSubscription::new_example_subscription2();
+        let auth_sub = AuthorizationSubscription::new_example_subscription4();
         let mut keys = VecDeque::from(["nutrients".to_string(), "calories".to_string()]);
         assert_eq!(
             Value::String("low".to_string()),
@@ -98,7 +143,7 @@ mod tests {
 
     #[test]
     fn subject_read_value_top_level() {
-        let auth_sub = AuthorizationSubscription::new_example_subscription1();
+        let auth_sub = AuthorizationSubscription::new_example_subscription3();
         let mut keys = VecDeque::new();
         assert_eq!(
             Value::String("WILLI".to_string()),
@@ -108,7 +153,7 @@ mod tests {
 
     #[test]
     fn resource_read_value_top_level() {
-        let auth_sub = AuthorizationSubscription::new_example_subscription1();
+        let auth_sub = AuthorizationSubscription::new_example_subscription3();
         let mut keys = VecDeque::new();
         assert_eq!(
             Value::String("something".to_string()),
@@ -118,7 +163,7 @@ mod tests {
 
     #[test]
     fn environment_read_option_none() {
-        let auth_sub = AuthorizationSubscription::new_example_subscription1();
+        let auth_sub = AuthorizationSubscription::new_example_subscription3();
         let mut keys = VecDeque::new();
         assert_eq!(
             Value::Null,

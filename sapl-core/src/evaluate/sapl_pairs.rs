@@ -14,18 +14,18 @@
     under the License.
 */
 
-use crate::{Ast, AuthorizationSubscription, Val};
+use crate::{Ast, Val};
 use serde_json::{Map, Value};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub(crate) fn sapl_pairs(
     pairs: &Arc<[Ast]>,
-    auth_subscription: &AuthorizationSubscription,
+    variable_context: Arc<RwLock<Value>>,
 ) -> Result<Val, String> {
     let mut map: Map<std::string::String, Value> = Map::new();
 
     for pair in pairs.iter() {
-        if let Ok(Val::Json(Value::Object(obj))) = pair.evaluate_inner(auth_subscription) {
+        if let Ok(Val::Json(Value::Object(obj))) = pair.evaluate_inner(variable_context.clone()) {
             for (k, v) in obj {
                 map.insert(k, v);
             }

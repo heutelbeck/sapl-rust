@@ -29,9 +29,11 @@ async fn async_demo_part() {
     let time_policy =
         parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;");
 
-    let mut p = time_policy.unwrap().evaluate_as_stream(&Arc::new(
-        AuthorizationSubscription::new_example_subscription1(),
-    ));
+    let auth_sub: AuthorizationSubscription =
+        serde_json::from_str(r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#)
+            .unwrap();
+
+    let mut p = time_policy.unwrap().evaluate_as_stream(&Arc::new(auth_sub));
 
     while let Some(v) = p.next().await {
         println!("evaluation stream: {v:#?}");

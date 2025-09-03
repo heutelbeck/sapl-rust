@@ -15,8 +15,7 @@
 */
 
 use crate::{
-    Ast, AuthorizationDecision, AuthorizationSubscription, CombiningAlgorithm, Decision, Policy,
-    Rule, once_decision,
+    Ast, AuthorizationDecision, CombiningAlgorithm, Decision, Policy, Rule, once_decision,
     sapl_document::combining_algorithm::{
         deny_overrides, deny_unless_permit, first_applicable, only_one_applicable,
         permit_overrides, permit_unless_deny,
@@ -25,7 +24,11 @@ use crate::{
 };
 use futures::Stream;
 use log::error;
-use std::{pin::Pin, sync::Arc};
+use serde_json::Value;
+use std::{
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Debug, Default)]
 pub struct PolicySet {
@@ -78,10 +81,10 @@ impl PolicySet {
         }
     }
 
-    pub fn evaluate(&self, auth_sub: &AuthorizationSubscription) -> AuthorizationDecision {
+    pub fn evaluate(&self, auth_sub: Arc<RwLock<Value>>) -> AuthorizationDecision {
         use CombiningAlgorithm::*;
 
-        match self.evaluate_target_expr(auth_sub) {
+        match self.evaluate_target_expr(auth_sub.clone()) {
             Err(e) => {
                 error!("Err evaluate target expression: {e:#?}");
                 Decision::Indeterminate.into()
@@ -91,7 +94,7 @@ impl PolicySet {
                 let decisions = self
                     .policies
                     .iter()
-                    .map(|p| Some(p.evaluate(auth_sub)))
+                    .map(|p| Some(p.evaluate(auth_sub.clone())))
                     .collect::<Box<[Option<AuthorizationDecision>]>>();
 
                 match &self.combining_algorithm {
@@ -108,11 +111,11 @@ impl PolicySet {
 
     pub fn evaluate_as_stream(
         &self,
-        auth_sub: &Arc<AuthorizationSubscription>,
+        auth_sub: Arc<RwLock<Value>>,
     ) -> Pin<Box<dyn Stream<Item = AuthorizationDecision> + std::marker::Send>> {
         use CombiningAlgorithm::*;
 
-        match self.evaluate_target_expr(auth_sub) {
+        match self.evaluate_target_expr(auth_sub.clone()) {
             Err(e) => {
                 error!("Err evaluate target expression: {e:#?}");
                 Box::pin(once_decision(Decision::Indeterminate.into()))
@@ -122,7 +125,7 @@ impl PolicySet {
                 let policy_streams = self
                     .policies
                     .iter()
-                    .map(|p| p.evaluate_as_stream(auth_sub))
+                    .map(|p| p.evaluate_as_stream(auth_sub.clone()))
                     .collect();
 
                 match &self.combining_algorithm {
@@ -154,7 +157,7 @@ impl PolicySet {
         }
     }
 
-    fn evaluate_target_expr(&self, auth_sub: &AuthorizationSubscription) -> Result<bool, String> {
+    fn evaluate_target_expr(&self, auth_sub: Arc<RwLock<Value>>) -> Result<bool, String> {
         match self.target_exp.as_ref() {
             Some(exp) => exp.evaluate(auth_sub),
             None => Ok(true),

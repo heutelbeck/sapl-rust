@@ -29,6 +29,8 @@ pub(crate) fn eq(lhs: &Result<Val, String>, rhs: &Result<Val, String>) -> Result
         (Ok(Boolean(l)), Ok(CompFloat(r, _))) => Ok(Boolean(l == r)),
         (Ok(CompFloat(l, _)), Ok(CompFloat(r, _))) => Ok(Boolean(l == r)),
         (Ok(String(l)), Ok(String(r))) => Ok(Boolean(l.eq(r))),
+        (Ok(Json(l)), Ok(Json(r))) => Ok(Boolean(l.eq(r))),
+        (Ok(Json(l)), Ok(String(r))) => Ok(Boolean(l.to_string().eq(r))),
         (Err(e), _) => Err(e.clone()),
         (_, Err(e)) => Err(e.clone()),
         (lhs, rhs) => Err(format!(

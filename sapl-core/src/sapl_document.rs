@@ -17,7 +17,7 @@
 use crate::{AuthorizationDecision, AuthorizationSubscription, Import, Schema};
 use futures::Stream;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub mod combining_algorithm;
 pub use combining_algorithm::CombiningAlgorithm;
@@ -38,20 +38,24 @@ pub struct SaplDocument {
 impl SaplDocument {
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
         use DocumentBody::*;
+
+        let auth_sub = Arc::new(RwLock::new(auth_subscription.into()));
         match &self.body {
-            Policy(p) => p.evaluate(auth_subscription),
-            PolicySet(ps) => ps.evaluate(auth_subscription),
+            Policy(p) => p.evaluate(auth_sub),
+            PolicySet(ps) => ps.evaluate(auth_sub),
         }
     }
 
     pub fn evaluate_as_stream(
         &self,
-        auth_subscription: &Arc<AuthorizationSubscription>,
+        auth_subscription: &AuthorizationSubscription,
     ) -> Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>> {
         use DocumentBody::*;
+
+        let auth_sub = Arc::new(RwLock::new(auth_subscription.into()));
         match &self.body {
-            Policy(p) => Box::pin(p.evaluate_as_stream(auth_subscription)),
-            PolicySet(ps) => Box::pin(ps.evaluate_as_stream(auth_subscription)),
+            Policy(p) => Box::pin(p.evaluate_as_stream(auth_sub)),
+            PolicySet(ps) => Box::pin(ps.evaluate_as_stream(auth_sub)),
         }
     }
 

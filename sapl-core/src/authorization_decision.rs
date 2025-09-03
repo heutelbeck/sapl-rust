@@ -126,3 +126,37 @@ impl From<AuthorizationDecision> for Value {
         serde_json::to_value(value).expect("Failed to serialize AuthorizationDecision to JSON")
     }
 }
+
+impl std::fmt::Display for AuthorizationDecision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Decision: {}", self.decision)?;
+
+        if let Some(resource) = &self.resource {
+            write!(f, ", Resource: {}", resource)?;
+        }
+
+        if let Some(obligations) = &self.obligations
+            && !obligations.is_empty()
+        {
+            let obligations_str = obligations
+                .iter()
+                .map(|o| o.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            write!(f, ", Obligations: [{}]", obligations_str)?;
+        }
+
+        if let Some(advice) = &self.advice
+            && !advice.is_empty()
+        {
+            let advice_str = advice
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            write!(f, ", Advice: [{}]", advice_str)?;
+        }
+
+        Ok(())
+    }
+}

@@ -15,12 +15,10 @@
 */
 
 use futures::Stream;
-use std::sync::Arc;
+use serde_json::Value;
+use std::sync::{Arc, RwLock};
 
-use crate::{
-    AuthorizationDecision, Policy, Val, authorization_subscription::AuthorizationSubscription,
-    decision::DecisionStream,
-};
+use crate::{AuthorizationDecision, Policy, Val, decision::DecisionStream};
 
 mod once;
 pub use once::{once_decision, once_val};
@@ -50,12 +48,12 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
     fn eval_to_decision(
         self,
         policy: Policy,
-        auth_subscription: &Arc<AuthorizationSubscription>,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> DecisionStream<Self>
     where
         Self: Sized,
     {
-        DecisionStream::new(self, policy, auth_subscription.clone())
+        DecisionStream::new(self, policy, auth_subscription)
     }
 
     fn eval_seconds_of(self) -> EvalSecondsOf<Self>

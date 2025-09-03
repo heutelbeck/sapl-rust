@@ -70,3 +70,14 @@ pub(crate) use sapl_pair::sapl_pair;
 
 mod array;
 pub(crate) use array::array;
+
+pub(crate) mod key_step;
+
+pub(crate) mod index_step;
+
+pub(crate) mod wildcard_step;
+
+pub(crate) mod id;
+
+mod variable_assignment;
+pub(crate) use variable_assignment::variable_assignment;

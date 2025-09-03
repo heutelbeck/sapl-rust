@@ -49,7 +49,11 @@ use authorization_subscription::AuthorizationSubscription;
 use pest::error::Error;
 use pest::{Parser, pratt_parser::PrattParser};
 use pest_derive::Parser;
-use std::pin::Pin;
+use serde_json::Value;
+use std::{
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 use stream_sapl::StreamSapl;
 use stream_sapl::{once_decision, once_val};
 use tokio_stream::Stream;
@@ -153,7 +157,7 @@ pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
 pub trait Eval {
     fn eval(
         &self,
-        auth_subscription: &AuthorizationSubscription,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> Pin<Box<dyn Stream<Item = Result<Val, String>> + Send>>;
 }
 

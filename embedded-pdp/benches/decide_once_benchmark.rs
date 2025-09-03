@@ -21,17 +21,16 @@ use std::path::Path;
 
 fn criterion_decide_once_benchmark(c: &mut Criterion) {
     let pdp = Pdp::new(
-        Some(Path::new(
-            "/home/stefan/Dokumente/uni/Thesis/sapl-rust/sapl-server-rs/policies/pdp.json",
-        )),
-        Some(Path::new(
-            "/home/stefan/Dokumente/uni/Thesis/sapl-rust/sapl-server-rs/policies/",
-        )),
+        Some(Path::new("../sapl-server-rs/policies/pdp.json")),
+        Some(Path::new("../sapl-server-rs/policies/")),
     );
 
     c.bench_function("decide_once", |b| {
         b.iter(|| {
-            let auth_sub = AuthorizationSubscription::new_example_subscription1();
+            let auth_sub: AuthorizationSubscription = serde_json::from_str(
+                r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#,
+            )
+            .unwrap();
             black_box(pdp.decide_once(black_box(auth_sub)))
         })
     });

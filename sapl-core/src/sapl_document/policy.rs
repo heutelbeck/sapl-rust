@@ -16,8 +16,10 @@
 
 use log::error;
 use serde_json::Value;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 use tokio_stream::Stream;
 
 use crate::AuthorizationDecision;
@@ -28,7 +30,6 @@ use crate::Eval;
 use crate::Rule;
 use crate::Val;
 use crate::ast::Ast;
-use crate::authorization_subscription::AuthorizationSubscription;
 use crate::evaluate::eager_and;
 use crate::stream_sapl::StreamSapl;
 use crate::{once_decision, once_val};
@@ -102,26 +103,26 @@ impl Policy {
         }
     }
 
-    pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
-        let result = self.evaluate_decison(auth_subscription);
+    pub fn evaluate(&self, auth_subscription: Arc<RwLock<Value>>) -> AuthorizationDecision {
+        let result = self.evaluate_decison(auth_subscription.clone());
         match result {
             Decision::Permit => AuthorizationDecision::new(
                 result,
-                self.evaluate_transformation(auth_subscription),
-                self.evaluate_obligation(auth_subscription),
+                self.evaluate_transformation(auth_subscription.clone()),
+                self.evaluate_obligation(auth_subscription.clone()),
                 self.evaluate_advice(auth_subscription),
             ),
             Decision::Deny => AuthorizationDecision::new(
                 result,
                 None,
-                self.evaluate_obligation(auth_subscription),
+                self.evaluate_obligation(auth_subscription.clone()),
                 self.evaluate_advice(auth_subscription),
             ),
             _ => result.into(),
         }
     }
 
-    pub fn evaluate_decison(&self, auth_subscription: &AuthorizationSubscription) -> Decision {
+    pub fn evaluate_decison(&self, variable_context: Arc<RwLock<Value>>) -> Decision {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
         // false (not matching) |   don’t care  |   NOT_APPLICABLE
@@ -132,7 +133,7 @@ impl Policy {
         //
         // https://sapl.io/docs/3.0.0-SNAPSHOT/6_2_Policy/
         let target = match self.target_exp.as_ref() {
-            Some(exp) => exp.evaluate(auth_subscription),
+            Some(exp) => exp.evaluate(variable_context.clone()),
             None => Ok(true),
         };
 
@@ -142,7 +143,7 @@ impl Policy {
                 Decision::Indeterminate
             }
             Ok(false) => Decision::NotApplicable,
-            Ok(true) => match self.evaluate_where_statement(auth_subscription) {
+            Ok(true) => match self.evaluate_where_statement(variable_context.clone()) {
                 Err(e) => {
                     error!("Evaluate where statement: {e:#?}");
                     Decision::Indeterminate
@@ -155,7 +156,7 @@ impl Policy {
 
     pub fn evaluate_where_statement(
         &self,
-        auth_subscription: &AuthorizationSubscription,
+        variable_context: Arc<RwLock<Value>>,
     ) -> Result<bool, String> {
         let result = Ok(true);
 
@@ -164,7 +165,7 @@ impl Policy {
         }
 
         for condition in self.where_statements.as_ref().unwrap().iter() {
-            match condition.evaluate(auth_subscription) {
+            match condition.evaluate(variable_context.clone()) {
                 Ok(true) => {}
                 Ok(false) => return Ok(false),
                 Err(e) => {
@@ -179,7 +180,7 @@ impl Policy {
 
     pub fn evaluate_as_stream(
         &self,
-        auth_subscription: &Arc<AuthorizationSubscription>,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> Pin<Box<dyn Stream<Item = AuthorizationDecision> + std::marker::Send>> {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
@@ -192,7 +193,7 @@ impl Policy {
         // https://sapl.io/docs/3.0.0-SNAPSHOT/6_2_Policy/
 
         let target = match self.target_exp.as_ref() {
-            Some(exp) => exp.evaluate(auth_subscription),
+            Some(exp) => exp.evaluate(auth_subscription.clone()),
             None => Ok(true),
         };
 
@@ -203,16 +204,13 @@ impl Policy {
             }
             Ok(false) => Box::pin(once_decision(Decision::NotApplicable.into())),
             Ok(true) => Box::pin(
-                self.evaluate_where_as_stream(auth_subscription)
+                self.evaluate_where_as_stream(auth_subscription.clone())
                     .eval_to_decision(self.clone(), auth_subscription),
             ),
         }
     }
 
-    fn evaluate_where_as_stream(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> BoxedValStream {
+    fn evaluate_where_as_stream(&self, auth_subscription: Arc<RwLock<Value>>) -> BoxedValStream {
         if self.where_statements.is_none() {
             return Box::pin(once_val(Val::Boolean(true)));
         }
@@ -222,7 +220,7 @@ impl Policy {
             .as_ref()
             .unwrap()
             .iter()
-            .map(|s| s.eval(auth_subscription))
+            .map(|s| s.eval(auth_subscription.clone()))
             .collect();
 
         fn combine(first: BoxedValStream, streams: &mut Vec<BoxedValStream>) -> BoxedValStream {
@@ -242,7 +240,7 @@ impl Policy {
 
     pub(crate) fn evaluate_obligation(
         &self,
-        auth_subscription: &AuthorizationSubscription,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> Option<Value> {
         if let Some(obligation) = &self.obligations
             && let Ok(Val::Json(obj)) = obligation.evaluate_inner(auth_subscription)
@@ -253,10 +251,7 @@ impl Policy {
         None
     }
 
-    pub(crate) fn evaluate_advice(
-        &self,
-        auth_subscription: &AuthorizationSubscription,
-    ) -> Option<Value> {
+    pub(crate) fn evaluate_advice(&self, auth_subscription: Arc<RwLock<Value>>) -> Option<Value> {
         if let Some(advice) = &self.advice
             && let Ok(Val::Json(obj)) = advice.evaluate_inner(auth_subscription)
         {
@@ -268,7 +263,7 @@ impl Policy {
 
     pub(crate) fn evaluate_transformation(
         &self,
-        auth_subscription: &AuthorizationSubscription,
+        auth_subscription: Arc<RwLock<Value>>,
     ) -> Option<Value> {
         if let Some(transform) = &self.transformation
             && let Ok(result) = transform.evaluate_inner(auth_subscription)

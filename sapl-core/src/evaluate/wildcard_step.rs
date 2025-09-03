@@ -14,19 +14,10 @@
     under the License.
 */
 
-use crate::{Ast, Val};
+use crate::Ast;
 use serde_json::Value;
-use std::sync::{Arc, RwLock};
 
-pub(crate) fn array(
-    array: &Arc<[Ast]>,
-    variable_context: Arc<RwLock<Value>>,
-) -> Result<Val, String> {
-    let mut json_array: Vec<Value> = Vec::new();
-    for a in array.iter() {
-        if let Ok(Val::Json(obj)) = a.evaluate_inner(variable_context.clone()) {
-            json_array.push(obj);
-        }
-    }
-    Ok(Val::Json(Value::Array(json_array)))
+pub(crate) fn evaluate(keys: &[Ast], src: &Value) -> Value {
+    println!("Daten sind: {:#?} - {:#?}", keys, src);
+    Value::Null
 }

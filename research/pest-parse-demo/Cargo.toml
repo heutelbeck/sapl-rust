@@ -7,3 +7,4 @@ edition = "2024"
 tokio-stream = "0.1.16"
 tokio = { version = "1", features = ["full", "test-util", "macros"] }
 sapl-core = { version = "0.1.0", path = "../../sapl-core" }
+serde_json = "1.0.115"

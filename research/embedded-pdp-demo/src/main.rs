@@ -34,9 +34,7 @@ async fn stream_debug_pdp() {
         )),
     );
 
-    let auth_sub = AuthorizationSubscription::new_example_subscription1();
-
-    let mut decision = pdp.decide(auth_sub);
+    let mut decision = pdp.decide(auth_sub());
 
     while let Some(d) = decision.next().await {
         println!("{d:?}");
@@ -44,7 +42,7 @@ async fn stream_debug_pdp() {
 }
 
 async fn stream_debug() {
-    let auth_sub = Arc::new(AuthorizationSubscription::new_example_subscription1());
+    let auth_sub = Arc::new(auth_sub());
 
     let sapl_document =
         parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;")
@@ -55,4 +53,11 @@ async fn stream_debug() {
     while let Some(v) = stream_sapl.next().await {
         println!("{v:?}");
     }
+}
+
+pub fn auth_sub() -> AuthorizationSubscription {
+    let json: AuthorizationSubscription =
+        serde_json::from_str(r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#)
+            .unwrap();
+    json
 }
