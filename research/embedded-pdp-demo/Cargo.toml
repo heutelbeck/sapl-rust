@@ -18,10 +18,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-async-stream = "0.3.6"
 embedded-pdp = { version = "0.1.0", path = "../../embedded-pdp" }
 futures = "0.3.31"
-pin-project-lite = "0.2.15"
 sapl-core = { version = "0.1.0", path = "../../sapl-core" }
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "macros"] }
-tokio-stream = "0.1.16"
