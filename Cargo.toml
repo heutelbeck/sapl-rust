@@ -14,6 +14,6 @@
 
 [workspace]
 
-members = [ "research/antlr-parser", "embedded-pdp", "research/file-reader", "sapl-core", "sapl-server-rs", "research/tokio-stream-demo", "research/pest-parse-demo", "research/embedded-pdp-demo"]
+members = [ "embedded-pdp", "research/file-reader", "sapl-core", "sapl-server-rs", "research/tokio-stream-demo", "research/pest-parse-demo", "research/embedded-pdp-demo"]
 
 resolver = "3"
