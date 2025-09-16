@@ -17,7 +17,6 @@
 mod ast;
 mod authorization_decision;
 pub mod authorization_subscription;
-mod basic_identifier_expression;
 mod decision;
 mod evaluate;
 mod functions;

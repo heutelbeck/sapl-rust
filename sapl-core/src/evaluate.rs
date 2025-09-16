@@ -56,6 +56,9 @@ pub(crate) use mul::mul;
 mod sub;
 pub(crate) use sub::sub;
 
+mod basic_identifier_expression;
+pub(super) use basic_identifier_expression::BasicIdentifierExpression;
+
 mod basic_identifier;
 pub(super) use basic_identifier::basic_identifier;
 

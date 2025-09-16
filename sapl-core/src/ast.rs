@@ -19,7 +19,7 @@ use crate::PRATT_PARSER;
 use crate::Rule;
 use crate::StreamSapl;
 use crate::Val;
-use crate::basic_identifier_expression::BasicIdentifierExpression;
+use crate::evaluate::BasicIdentifierExpression;
 use crate::once_val;
 use crate::pip::Time;
 
@@ -502,7 +502,7 @@ impl Ast {
         self.simplify_expr();
     }
 
-    pub fn simplify_expr(&mut self) -> &mut Self {
+    fn simplify_expr(&mut self) -> &mut Self {
         use self::Ast::*;
         use crate::simplify::*;
 
