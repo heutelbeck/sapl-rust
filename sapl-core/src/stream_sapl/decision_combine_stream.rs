@@ -31,6 +31,7 @@ pin_project! {
         #[pin]
         streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
         decisions: Vec<Option<AuthorizationDecision>>,
+        producing: Vec<bool>,
         combine_fn: F,
         has_initial_emission: bool,
     }
@@ -48,6 +49,7 @@ where
         Self {
             streams,
             decisions: vec![None; len],
+            producing: vec![true; len],
             combine_fn,
             has_initial_emission: false,
         }
@@ -73,40 +75,40 @@ where
 
             for i in 0..len {
                 // Keep polling each stream until it returns Pending
-                loop {
-                    match this.streams[i].as_mut().poll_next(cx) {
-                        Poll::Ready(Some(new_decision)) => {
-                            all_streams_ended = false;
-                            made_progress = true;
+                if this.producing[i] {
+                    loop {
+                        match this.streams[i].as_mut().poll_next(cx) {
+                            Poll::Ready(Some(new_decision)) => {
+                                all_streams_ended = false;
+                                made_progress = true;
 
-                            // Check if this is actually a change
-                            let is_change = match &this.decisions[i] {
-                                Some(old_decision) => *old_decision != new_decision,
-                                None => true, // First value is always a change
-                            };
+                                // Check if this is actually a change
+                                let is_change = match &this.decisions[i] {
+                                    Some(old_decision) => *old_decision != new_decision,
+                                    None => true, // First value is always a change
+                                };
 
-                            if is_change {
-                                debug!("📥 Stream {i} changed: {new_decision:?}");
-                                this.decisions[i] = Some(new_decision);
-                                any_stream_changed = true;
-                                break;
-                            } else {
-                                debug!("📥 Stream {i} same value: {new_decision:?}");
+                                if is_change {
+                                    debug!("📥 Stream {i} changed: {new_decision:?}");
+                                    this.decisions[i] = Some(new_decision);
+                                    any_stream_changed = true;
+                                    break;
+                                } else {
+                                    debug!("📥 Stream {i} same value: {new_decision:?}");
+                                }
+                                continue; // Keep polling this stream
                             }
-                            continue; // Keep polling this stream
-                        }
-                        Poll::Ready(None) => {
-                            // Stream ended
-                            if this.decisions[i].is_some() {
+                            Poll::Ready(None) => {
+                                // Stream ended
+                                this.producing[i] = false;
                                 debug!("❌ Stream {i} ended");
                                 made_progress = true;
-                                this.decisions[i] = None;
+                                break; // This stream is done
                             }
-                            break; // This stream is done
-                        }
-                        Poll::Pending => {
-                            all_streams_ended = false;
-                            break; // This stream has no more data right now
+                            Poll::Pending => {
+                                all_streams_ended = false;
+                                break; // This stream has no more data right now
+                            }
                         }
                     }
                 }
