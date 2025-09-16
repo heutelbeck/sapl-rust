@@ -120,8 +120,8 @@ where
         }
 
         let should_emit = if !*this.has_initial_emission {
-            // For initial emission: emit as soon as we have ANY data
-            let has_data = this.decisions.iter().any(|d| d.is_some());
+            // For initial emission: emit as soon as we have data from every stream
+            let has_data = this.decisions.iter().all(|d| d.is_some());
             if has_data {
                 debug!("🎉 Initial emission condition met");
             }
