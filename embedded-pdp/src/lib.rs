@@ -88,7 +88,7 @@ impl Pdp {
     pub fn decide(
         &self,
         auth_sub: AuthorizationSubscription,
-    ) -> Pin<Box<(dyn Stream<Item = Value> + Send)>> {
+    ) -> Pin<Box<dyn Stream<Item = Value> + Send>> {
         use CombiningAlgorithm::*;
 
         // Acquire read locks to access the inner data

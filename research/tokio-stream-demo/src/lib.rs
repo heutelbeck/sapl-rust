@@ -48,5 +48,5 @@ pub use val::Val;
 
 pub trait Expression: Eval + Debug {}
 pub trait Eval {
-    fn eval(&self) -> Pin<Box<(dyn Stream<Item = Val> + 'static)>>;
+    fn eval(&self) -> Pin<Box<dyn Stream<Item = Val> + 'static>>;
 }

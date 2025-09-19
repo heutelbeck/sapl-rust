@@ -23,7 +23,7 @@ pub enum Ast {
 impl<S> StreamSapl for S where S: Stream<Item = Val> {}
 impl Expression for Ast {}
 impl Eval for Ast {
-    fn eval(&self) -> Pin<Box<(dyn Stream<Item = Val>)>> {
+    fn eval(&self) -> Pin<Box<dyn Stream<Item = Val>>> {
         match self {
             Ast::BooleanStream(stream) => {
                 let owend_stream = (*stream).clone();
