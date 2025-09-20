@@ -87,7 +87,7 @@ impl AuthorizationDecision {
             match self.resource {
                 Some(_) => {
                     self.resource = None;
-                    self.decision = Decision::Deny;
+                    self.decision = Decision::Indeterminate;
                 }
                 None => {
                     self.resource = resource;
