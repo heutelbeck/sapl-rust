@@ -32,8 +32,8 @@ pub use value_stream::ValueStream;
 mod eval_op;
 pub(crate) use eval_op::EvalOp;
 
-mod eval_seconds_of;
-pub use eval_seconds_of::EvalSecondsOf;
+mod eval_basic_function;
+pub(crate) use eval_basic_function::EvalBasicFunction;
 
 pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
     fn eval_op<U, F>(self, other: U, op_fn: F) -> EvalOp<Self, U, F>
@@ -45,6 +45,14 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalOp::new(self, other, op_fn)
     }
 
+    fn eval_basic_function<F>(self, basic_fn: F) -> EvalBasicFunction<Self, F>
+    where
+        F: Fn(&Result<Val, String>) -> Result<Val, String>,
+        Self: Sized,
+    {
+        EvalBasicFunction::new(self, basic_fn)
+    }
+
     fn eval_to_decision(
         self,
         policy: Policy,
@@ -54,13 +62,6 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         Self: Sized,
     {
         DecisionStream::new(self, policy, auth_subscription)
-    }
-
-    fn eval_seconds_of(self) -> EvalSecondsOf<Self>
-    where
-        Self: Sized,
-    {
-        EvalSecondsOf::new(self)
     }
 }
 

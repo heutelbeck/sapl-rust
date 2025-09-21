@@ -18,9 +18,9 @@ use chrono::{DateTime, Datelike, Timelike, Weekday};
 
 use crate::Val;
 
-pub(crate) fn second_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn second_of(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::Integer(dt.second().into())),
             Err(e) => Err(e.to_string()),
         },
@@ -30,9 +30,9 @@ pub(crate) fn second_of(iso_date_time: Result<Val, String>) -> Result<Val, Strin
     }
 }
 
-pub(crate) fn minute_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn minute_of(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::Integer(dt.minute().into())),
             Err(e) => Err(e.to_string()),
         },
@@ -42,9 +42,9 @@ pub(crate) fn minute_of(iso_date_time: Result<Val, String>) -> Result<Val, Strin
     }
 }
 
-pub(crate) fn hour_of(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn hour_of(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::Integer(dt.hour().into())),
             Err(e) => Err(e.to_string()),
         },
@@ -54,9 +54,9 @@ pub(crate) fn hour_of(iso_date_time: Result<Val, String>) -> Result<Val, String>
     }
 }
 
-pub(crate) fn week_of_year(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn week_of_year(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::Integer(dt.iso_week().week().into())),
             Err(e) => Err(e.to_string()),
         },
@@ -66,9 +66,9 @@ pub(crate) fn week_of_year(iso_date_time: Result<Val, String>) -> Result<Val, St
     }
 }
 
-pub(crate) fn day_of_year(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn day_of_year(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::Integer(dt.ordinal().into())),
             Err(e) => Err(e.to_string()),
         },
@@ -78,9 +78,9 @@ pub(crate) fn day_of_year(iso_date_time: Result<Val, String>) -> Result<Val, Str
     }
 }
 
-pub(crate) fn day_of_week(iso_date_time: Result<Val, String>) -> Result<Val, String> {
+pub(crate) fn day_of_week(iso_date_time: &Result<Val, String>) -> Result<Val, String> {
     match iso_date_time {
-        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(&s) {
+        Ok(Val::String(s)) => match DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Ok(Val::String(dt.weekday().format_weekday())),
             Err(e) => Err(e.to_string()),
         },
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn second_of_with_non_rfc_3339_input() {
-        let result = second_of(Ok(Val::String("LoremIpsum".to_string())));
+        let result = second_of(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -122,13 +122,13 @@ mod tests {
     fn second_of_with_valid_input() {
         assert_eq!(
             Ok(Val::Integer(23)),
-            second_of(Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
+            second_of(&Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
         );
     }
 
     #[test]
     fn minute_of_with_non_rfc_3339_input() {
-        let result = minute_of(Ok(Val::String("LoremIpsum".to_string())));
+        let result = minute_of(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -136,13 +136,13 @@ mod tests {
     fn minute_of_with_valid_input() {
         assert_eq!(
             Ok(Val::Integer(42)),
-            minute_of(Ok(Val::String("2025-07-26T20:42:23Z".to_string())))
+            minute_of(&Ok(Val::String("2025-07-26T20:42:23Z".to_string())))
         );
     }
 
     #[test]
     fn hour_of_with_non_rfc_3339_input() {
-        let result = hour_of(Ok(Val::String("LoremIpsum".to_string())));
+        let result = hour_of(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -150,13 +150,13 @@ mod tests {
     fn hour_of_with_valid_input() {
         assert_eq!(
             Ok(Val::Integer(20)),
-            hour_of(Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
+            hour_of(&Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
         );
     }
 
     #[test]
     fn week_of_year_with_non_rfc_3339_input() {
-        let result = week_of_year(Ok(Val::String("LoremIpsum".to_string())));
+        let result = week_of_year(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -164,13 +164,13 @@ mod tests {
     fn week_of_year_with_valid_input() {
         assert_eq!(
             Ok(Val::Integer(30)),
-            week_of_year(Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
+            week_of_year(&Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
         );
     }
 
     #[test]
     fn day_of_year_with_non_rfc_3339_input() {
-        let result = day_of_year(Ok(Val::String("LoremIpsum".to_string())));
+        let result = day_of_year(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -178,13 +178,13 @@ mod tests {
     fn day_of_year_with_valid_input() {
         assert_eq!(
             Ok(Val::Integer(207)),
-            day_of_year(Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
+            day_of_year(&Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
         );
     }
 
     #[test]
     fn day_of_week_with_non_rfc_3339_input() {
-        let result = day_of_week(Ok(Val::String("LoremIpsum".to_string())));
+        let result = day_of_week(&Ok(Val::String("LoremIpsum".to_string())));
         assert!(result.is_err());
     }
 
@@ -192,7 +192,7 @@ mod tests {
     fn day_of_week_with_valid_input() {
         assert_eq!(
             Ok(Val::String("SATURDAY".to_string())),
-            day_of_week(Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
+            day_of_week(&Ok(Val::String("2025-07-26T20:00:23Z".to_string())))
         );
     }
 }

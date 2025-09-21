@@ -14,14 +14,15 @@
     under the License.
 */
 
-use crate::Eval;
-use crate::PRATT_PARSER;
-use crate::Rule;
-use crate::StreamSapl;
-use crate::Val;
-use crate::evaluate::BasicIdentifierExpression;
-use crate::once_val;
-use crate::pip::Time;
+use crate::{
+    Eval, PRATT_PARSER, Rule, StreamSapl, Val,
+    evaluate::BasicIdentifierExpression,
+    functions::temporal_function_library::{
+        day_of_week, day_of_year, hour_of, minute_of, second_of, week_of_year,
+    },
+    once_val,
+    pip::Time,
+};
 
 use futures::Stream;
 use rust_decimal::Decimal;
@@ -650,7 +651,76 @@ impl Eval for Ast {
             Ast::BasicIdentifier(bi) => Box::pin(once_val(
                 crate::evaluate::basic_identifier(bi, auth_subscription).unwrap(),
             )),
-            Ast::BasicFunction(_) => Box::pin(Time::new(1000).eval_seconds_of()),
+            Ast::BasicFunction(bf) => {
+                if bf.len() != 2 {
+                    unimplemented!(
+                        "{}",
+                        format!("unexpected basic_function structure: {:#?}", bf)
+                    );
+                }
+
+                let arg_stream = match &bf[1] {
+                    Ast::Arguments(arg) => Box::pin(arg.eval(auth_subscription.clone())),
+                    others => unimplemented!("{}", format!("{:#?} is not implemented yet", others)),
+                };
+
+                match &bf[0] {
+                    Ast::FunctionIdentifier(fi) => match fi.as_ref() {
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "secondOf" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(second_of))
+                        }
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "minuteOf" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(minute_of))
+                        }
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "hourOf" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(hour_of))
+                        }
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "weekOfYear" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(week_of_year))
+                        }
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "dayOfYear" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(day_of_year))
+                        }
+                        [Ast::Id(namespace), Ast::Id(function)]
+                            if namespace == "time" && function == "dayOfWeek" =>
+                        {
+                            Box::pin(arg_stream.eval_basic_function(day_of_week))
+                        }
+                        other => unimplemented!(
+                            "{}",
+                            format!("function_identifier {other:#?} is unkown")
+                        ),
+                    },
+                    others => unimplemented!("{}", format!("{:#?} is not implemented yet", others)),
+                }
+            }
+            Ast::BasicEnvironmentAttribute(bea) => match &bea[0] {
+                Ast::FunctionIdentifier(fi) => match fi.as_ref() {
+                    [Ast::Id(namespace), Ast::Id(function)]
+                        if namespace == "time" && function == "now" =>
+                    {
+                        Box::pin(Time::default())
+                    }
+                    other => unimplemented!(
+                        "{}",
+                        format!("evaluate_function_identifier function {other:#?} is unkown")
+                    ),
+                },
+                other => unimplemented!(
+                    "{}",
+                    format!("BasicEnvironmentAttribute {:#?} is unkown", other)
+                ),
+            },
             Ast::Boolean(b) => Box::pin(once_val(Val::Boolean(*b))),
             Ast::Integer(i) => Box::pin(once_val(Val::Integer(*i))),
             Ast::Float(f) => Box::pin(once_val(Val::Float(*f))),

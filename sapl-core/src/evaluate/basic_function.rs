@@ -48,32 +48,32 @@ fn evaluate_function_identifier(fi: &Ast, arg: Result<Val, String>) -> Result<Va
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "secondOf" =>
             {
-                second_of(arg)
+                second_of(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "minuteOf" =>
             {
-                minute_of(arg)
+                minute_of(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "hourOf" =>
             {
-                hour_of(arg)
+                hour_of(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "weekOfYear" =>
             {
-                week_of_year(arg)
+                week_of_year(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "dayOfYear" =>
             {
-                day_of_year(arg)
+                day_of_year(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)]
                 if namespace == "time" && function == "dayOfWeek" =>
             {
-                day_of_week(arg)
+                day_of_week(&arg)
             }
             [Ast::Id(namespace), Ast::Id(function)] if namespace == "time" && function == "now" => {
                 Time::now()
@@ -103,10 +103,10 @@ fn evaluate_arguments(input: &Ast) -> Result<Val, String> {
                     Ok(Val::None)
                 },
             ),
-            other => todo!("Hallo Welt {other:#?}"),
+            other => todo!("Unkown argument: {other:#?}"),
         },
         other => Err(format!(
-            "evaluate_arguments expects Ast::Arguments, bit got: {other:#?}"
+            "evaluate_arguments expects Ast::Arguments, but got: {other:#?}"
         )),
     }
 }
@@ -206,7 +206,7 @@ mod tests {
                 AuthorizationSubscription::new_example_subscription1(),
             )),
         );
-        let second_now = second_of(Time::now());
+        let second_now = second_of(&Time::now());
         assert_eq!(second_now, result);
     }
 }
