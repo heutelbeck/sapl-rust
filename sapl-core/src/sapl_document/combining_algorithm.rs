@@ -52,7 +52,6 @@ impl CombiningAlgorithm {
 }
 
 pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
-    let mut indeterminate = false;
     let mut permit = false;
     let mut combined: AuthorizationDecision = Decision::Permit.into();
 
@@ -63,18 +62,17 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
                 return decision.clone();
             }
             Decision::Indeterminate => {
-                indeterminate = true;
+                return Decision::Indeterminate.into();
             }
             Decision::Permit => {
+                if permit && (decision.resource.is_some() || combined.resource.is_some()) {
+                    return Decision::Indeterminate.into();
+                }
                 permit = true;
                 combined.collect(decision.clone());
             }
             _ => {}
         }
-    }
-
-    if indeterminate {
-        return Decision::Indeterminate.into();
     }
 
     if permit {
@@ -141,7 +139,6 @@ pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> Autho
 }
 
 pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
-    let mut indeterminate = false;
     let mut deny = false;
     let mut combined = AuthorizationDecision::default();
 
@@ -152,7 +149,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
                 return decision.clone();
             }
             Decision::Indeterminate => {
-                indeterminate = true;
+                return Decision::Indeterminate.into();
             }
             Decision::Deny => {
                 deny = true;
@@ -160,10 +157,6 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
             }
             _ => {}
         }
-    }
-
-    if indeterminate {
-        return Decision::Indeterminate.into();
     }
 
     if deny {
@@ -175,6 +168,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
 }
 
 pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
+    let mut permit = false;
     let mut combined: AuthorizationDecision = Decision::Permit.into();
 
     for decision in decisions.iter().flatten() {
@@ -182,7 +176,13 @@ pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> Author
             debug!("✅ Found Deny decision, returning immediately");
             return decision.clone();
         }
-        combined.collect(decision.clone());
+        if decision.decision == Decision::Permit {
+            if permit && (decision.resource.is_some() || combined.resource.is_some()) {
+                return Decision::Indeterminate.into();
+            }
+            permit = true;
+            combined.collect(decision.clone());
+        }
     }
 
     debug!("🔒 No Deny found, returning combined Permit");
