@@ -15,7 +15,7 @@
 */
 
 use crate::Ast;
-use crate::evaluate::{index_step, key_step, wildcard_step};
+use crate::evaluate::{expression_step, index_step, key_step, wildcard_step};
 use serde_json::Value;
 use std::sync::{Arc, RwLock};
 
@@ -32,6 +32,9 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: Arc<RwLock<Value>>) -> Valu
                 Some(Ast::WildcardStep) => {
                     wildcard_step::evaluate(keys.get(1..).unwrap_or(&[]), data)
                 }
+                Some(Ast::ExpressionStep(s)) => {
+                    expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), data)
+                }
                 None => data.clone(),
                 _ => Value::Null,
             },
@@ -39,5 +42,88 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: Arc<RwLock<Value>>) -> Valu
         }
     } else {
         Value::Null
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde_json::json;
+
+    fn get_data() -> Value {
+        json!({
+            "key" : "value1",
+            "key2": {
+                "key": "value3"
+            },
+            "array1" : [
+                { "key" : "value2" },
+                { "key" : "value3" }
+            ],
+            "array2" : [
+                1, 2, 3, 4, 5
+            ]
+        })
+    }
+
+    fn get_index_step(index: i64) -> Ast {
+        Ast::IndexStep(index)
+    }
+
+    fn get_expr_key_step() -> Ast {
+        let expr = Arc::new(Ast::Expr {
+            lhs: Ast::Integer(3).into(),
+            op: crate::Op::Addition,
+            rhs: Ast::Integer(1).into(),
+        });
+        Ast::ExpressionStep(expr)
+    }
+
+    #[test]
+    fn evaluate_key_step() {
+        assert_eq!(
+            json!("value3"),
+            evaluate(
+                "key2",
+                &[Ast::KeyStep("key".to_string())],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_index_step() {
+        assert_eq!(
+            json!(1),
+            evaluate(
+                "array2",
+                &[get_index_step(0)],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_negativ_index_step() {
+        assert_eq!(
+            json!(3),
+            evaluate(
+                "array2",
+                &[get_index_step(-3)],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_expression_key_step() {
+        assert_eq!(
+            json!(5),
+            evaluate(
+                "array2",
+                &[get_expr_key_step()],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
     }
 }

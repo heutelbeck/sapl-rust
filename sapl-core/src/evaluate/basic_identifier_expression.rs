@@ -21,7 +21,10 @@ use std::{
 };
 
 use crate::evaluate::key_step;
-use crate::{Ast, evaluate::wildcard_step};
+use crate::{
+    Ast,
+    evaluate::{expression_step, index_step, wildcard_step},
+};
 
 #[derive(PartialEq, Debug)]
 pub enum BasicIdentifierExpression {
@@ -58,7 +61,11 @@ impl BasicIdentifierExpression {
             Some(Ast::KeyStep(s)) | Some(Ast::EscapedKeyStep(s)) => {
                 key_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
             }
+            Some(Ast::IndexStep(i)) => index_step::evaluate(*i, keys.get(1..).unwrap_or(&[]), &src),
             Some(Ast::WildcardStep) => wildcard_step::evaluate(keys.get(1..).unwrap_or(&[]), &src),
+            Some(Ast::ExpressionStep(s)) => {
+                expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
+            }
             None => src.clone(),
             _ => Value::Null,
         }
@@ -79,5 +86,112 @@ impl Display for BasicIdentifierExpression {
                 Environment => "environment",
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde_json::json;
+
+    fn get_data() -> Value {
+        json!({"action": {
+            "key" : "value1",
+            "key2": {
+                "key": "value3"
+            },
+            "array1" : [
+                { "key" : "value2" },
+                { "key" : "value3" }
+            ],
+            "array2" : [
+                1, 2, 3, 4, 5
+            ]
+        }})
+    }
+
+    fn get_index_step(index: i64) -> Ast {
+        Ast::IndexStep(index)
+    }
+
+    fn get_expr_key_step() -> Ast {
+        let expr = Arc::new(Ast::Expr {
+            lhs: Ast::Integer(3).into(),
+            op: crate::Op::Addition,
+            rhs: Ast::Integer(1).into(),
+        });
+        Ast::ExpressionStep(expr)
+    }
+
+    #[test]
+    fn evaluate_key_step() {
+        assert_eq!(
+            json!("value1"),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::KeyStep("key".to_string())],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_key_step2() {
+        assert_eq!(
+            json!("value3"),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[
+                    Ast::KeyStep("key2".to_string()),
+                    Ast::KeyStep("key".to_string())
+                ],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_escaped_key_step() {
+        assert_eq!(
+            json!("value3"),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[
+                    Ast::EscapedKeyStep("key2".to_string()),
+                    Ast::EscapedKeyStep("key".to_string())
+                ],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_index_step() {
+        assert_eq!(
+            json!(1),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::KeyStep("array2".to_string()), get_index_step(0)],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_negativ_index_step() {
+        assert_eq!(
+            json!(3),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::KeyStep("array2".to_string()), get_index_step(-3)],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_expression_key_step() {
+        assert_eq!(
+            json!(5),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::KeyStep("array2".to_string()), get_expr_key_step()],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
     }
 }

@@ -80,6 +80,8 @@ pub(crate) mod index_step;
 
 pub(crate) mod wildcard_step;
 
+pub(crate) mod expression_step;
+
 pub(crate) mod id;
 
 mod variable_assignment;

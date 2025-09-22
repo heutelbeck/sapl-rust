@@ -15,7 +15,7 @@
 */
 
 use crate::Ast;
-use crate::evaluate::index_step;
+use crate::evaluate::{expression_step, index_step, wildcard_step};
 use serde_json::Value;
 
 pub(crate) fn evaluate(key: &str, keys: &[Ast], src: &Value) -> Value {
@@ -25,6 +25,10 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: &Value) -> Value {
                 evaluate(s, keys.get(1..).unwrap_or(&[]), data)
             }
             Some(Ast::IndexStep(i)) => index_step::evaluate(*i, keys.get(1..).unwrap_or(&[]), data),
+            Some(Ast::WildcardStep) => wildcard_step::evaluate(keys.get(2..).unwrap_or(&[]), data),
+            Some(Ast::ExpressionStep(s)) => {
+                expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), data)
+            }
             None => data.clone(),
             _ => Value::Null,
         },
