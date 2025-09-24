@@ -20,10 +20,12 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::evaluate::{key_step, recursive_key_step};
 use crate::{
     Ast,
-    evaluate::{expression_step, index_step, wildcard_step},
+    evaluate::{
+        expression_step, index_step, key_step, recursive_index_step, recursive_key_step,
+        wildcard_step,
+    },
 };
 
 #[derive(PartialEq, Debug)]
@@ -67,6 +69,7 @@ impl BasicIdentifierExpression {
                 expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
             }
             Some(Ast::RecursiveKeyStep(s)) => recursive_key_step::evaluate(s, &src),
+            Some(Ast::RecursiveIndexStep(i)) => recursive_index_step::evaluate(*i, &src),
             None => src.clone(),
             _ => Value::Null,
         }
@@ -205,6 +208,17 @@ mod test {
                     Ast::RecursiveKeyStep("key".to_string()),
                     get_expr_key_step()
                 ],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_recursive_index_step() {
+        assert_eq!(
+            json!([{"key": "value2"}, 1]),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::RecursiveIndexStep(0), get_expr_key_step()],
                 Arc::new(RwLock::new(get_data()))
             )
         );

@@ -25,9 +25,6 @@ pub(crate) fn array(
 ) -> Result<Val, String> {
     let mut json_array: Vec<Value> = Vec::new();
     for a in array.iter() {
-        if let Ok(Val::Json(obj)) = a.evaluate_inner(variable_context.clone()) {
-            json_array.push(obj);
-        }
         match a.evaluate_inner(variable_context.clone()) {
             Ok(Val::Json(obj)) => json_array.push(obj),
             Ok(Val::Integer(i)) => json_array.push(serde_json::Value::Number(

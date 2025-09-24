@@ -74,7 +74,7 @@ pub enum Ast {
     ConditionStep(Arc<Ast>),
     EscapedKeyStep(String),
     RecursiveKeyStep(String),
-    RecursiveIndexStep(String),
+    RecursiveIndexStep(i64),
     IndexUnionStep(Arc<[Ast]>),
     AttributeUnionStep(Arc<[Ast]>),
     ArraySlicingStep(Arc<[Ast]>),
@@ -139,7 +139,7 @@ impl Clone for Ast {
             Ast::ExpressionStep(val) => Ast::ExpressionStep(val.clone()),
             Ast::ConditionStep(val) => Ast::ConditionStep(val.clone()),
             Ast::RecursiveKeyStep(val) => Ast::RecursiveKeyStep(val.clone()),
-            Ast::RecursiveIndexStep(val) => Ast::RecursiveIndexStep(val.clone()),
+            Ast::RecursiveIndexStep(val) => Ast::RecursiveIndexStep(*val),
             Ast::WildcardStep => Ast::WildcardStep,
             Ast::RecursiveWildcardStep => Ast::RecursiveWildcardStep,
             Ast::AttributeFinderStep(val) => Ast::AttributeFinderStep(val.clone()),
@@ -245,7 +245,9 @@ impl Ast {
                 Rule::escaped_key_step => {
                     Ast::EscapedKeyStep(Ast::clean_string(pair.as_str().trim()))
                 }
-                Rule::recursive_index_step => Ast::RecursiveIndexStep(pair.as_str().to_string()),
+                Rule::recursive_index_step => {
+                    Ast::RecursiveIndexStep(pair.as_str().trim().parse().unwrap())
+                }
                 Rule::wildcard_step => Ast::WildcardStep,
                 Rule::recursive_wildcard_step => Ast::RecursiveWildcardStep,
                 Rule::attribute_finder_step => Ast::AttributeFinderStep(pair.as_str().to_string()),
@@ -1456,6 +1458,22 @@ mod tests {
         let pair = SaplParser::parse(
             Rule::target_expression,
             "action..[\'key\'] == [\"value1\", \"value2\", \"value3\"]",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_recursive_index_step() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action..[0] == [{\"key\": \"value2\"}, 1]",
         )
         .unwrap()
         .next()
