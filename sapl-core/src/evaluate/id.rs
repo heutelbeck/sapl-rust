@@ -15,7 +15,7 @@
 */
 
 use crate::Ast;
-use crate::evaluate::{expression_step, index_step, key_step, wildcard_step};
+use crate::evaluate::{expression_step, index_step, key_step, recursive_key_step, wildcard_step};
 use serde_json::Value;
 use std::sync::{Arc, RwLock};
 
@@ -35,6 +35,7 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: Arc<RwLock<Value>>) -> Valu
                 Some(Ast::ExpressionStep(s)) => {
                     expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), data)
                 }
+                Some(Ast::RecursiveKeyStep(s)) => recursive_key_step::evaluate(s, data),
                 None => data.clone(),
                 _ => Value::Null,
             },
@@ -54,7 +55,7 @@ mod test {
         json!({
             "key" : "value1",
             "key2": {
-                "key": "value3"
+                "key": "value4"
             },
             "array1" : [
                 { "key" : "value2" },
@@ -82,7 +83,7 @@ mod test {
     #[test]
     fn evaluate_key_step() {
         assert_eq!(
-            json!("value3"),
+            json!("value4"),
             evaluate(
                 "key2",
                 &[Ast::KeyStep("key".to_string())],
@@ -123,6 +124,32 @@ mod test {
                 "array2",
                 &[get_expr_key_step()],
                 Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_recursive_key_step() {
+        let src = json!({ "id": {
+            "key" : "value1",
+            "key2": {
+                "key": "value4"
+            },
+            "array1" : [
+                { "key" : "value2" },
+                { "key" : "value3" }
+            ],
+            "array2" : [
+                1, 2, 3, 4, 5
+            ]
+        }});
+
+        assert_eq!(
+            json!(["value1", "value4", "value2", "value3"]),
+            evaluate(
+                "id",
+                &[Ast::RecursiveKeyStep("key".to_string())],
+                Arc::new(RwLock::new(src))
             )
         );
     }

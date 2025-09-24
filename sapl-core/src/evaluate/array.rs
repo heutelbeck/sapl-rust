@@ -15,7 +15,8 @@
 */
 
 use crate::{Ast, Val};
-use serde_json::Value;
+use rust_decimal::prelude::ToPrimitive;
+use serde_json::{Number, Value};
 use std::sync::{Arc, RwLock};
 
 pub(crate) fn array(
@@ -27,6 +28,19 @@ pub(crate) fn array(
         if let Ok(Val::Json(obj)) = a.evaluate_inner(variable_context.clone()) {
             json_array.push(obj);
         }
+        match a.evaluate_inner(variable_context.clone()) {
+            Ok(Val::Json(obj)) => json_array.push(obj),
+            Ok(Val::Integer(i)) => json_array.push(serde_json::Value::Number(
+                Number::from_i128(i as i128).unwrap(),
+            )),
+            Ok(Val::Float(f)) => json_array.push(serde_json::Value::Number(
+                Number::from_f64(f.to_f64().expect("Failed to convert Decimal to f64"))
+                    .expect("Failed to convert f64 to json number"),
+            )),
+            Ok(Val::String(s)) => json_array.push(s.into()),
+            _ => {}
+        }
     }
+
     Ok(Val::Json(Value::Array(json_array)))
 }

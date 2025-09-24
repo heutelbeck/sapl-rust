@@ -239,7 +239,9 @@ impl Ast {
                 Rule::array_slicing_step => Ast::ArraySlicingStep(Arc::from(
                     pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
                 )),
-                Rule::recursive_key_step => Ast::RecursiveKeyStep(pair.as_str().to_string()),
+                Rule::recursive_key_step => {
+                    Ast::RecursiveKeyStep(Ast::clean_string(pair.as_str().trim()))
+                }
                 Rule::escaped_key_step => {
                     Ast::EscapedKeyStep(Ast::clean_string(pair.as_str().trim()))
                 }
@@ -1410,6 +1412,54 @@ mod tests {
             .unwrap()
             .next()
             .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_recursive_key_step1() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action..key == [\"value1\", \"value2\", \"value3\"]",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_recursive_key_step2() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action..[\"key\"] == [\"value1\", \"value2\", \"value3\"]",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_recursive_key_step3() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action..[\'key\'] == [\"value1\", \"value2\", \"value3\"]",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
         let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
             AuthorizationSubscription::new_example_subscription5(),
         )));

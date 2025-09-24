@@ -82,6 +82,8 @@ pub(crate) mod wildcard_step;
 
 pub(crate) mod expression_step;
 
+pub(crate) mod recursive_key_step;
+
 pub(crate) mod id;
 
 mod variable_assignment;

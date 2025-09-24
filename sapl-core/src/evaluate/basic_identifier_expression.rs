@@ -20,7 +20,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::evaluate::key_step;
+use crate::evaluate::{key_step, recursive_key_step};
 use crate::{
     Ast,
     evaluate::{expression_step, index_step, wildcard_step},
@@ -66,6 +66,7 @@ impl BasicIdentifierExpression {
             Some(Ast::ExpressionStep(s)) => {
                 expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
             }
+            Some(Ast::RecursiveKeyStep(s)) => recursive_key_step::evaluate(s, &src),
             None => src.clone(),
             _ => Value::Null,
         }
@@ -98,7 +99,7 @@ mod test {
         json!({"action": {
             "key" : "value1",
             "key2": {
-                "key": "value3"
+                "key": "value4"
             },
             "array1" : [
                 { "key" : "value2" },
@@ -137,7 +138,7 @@ mod test {
     #[test]
     fn evaluate_key_step2() {
         assert_eq!(
-            json!("value3"),
+            json!("value4"),
             BasicIdentifierExpression::new("action").evaluate(
                 &[
                     Ast::KeyStep("key2".to_string()),
@@ -151,7 +152,7 @@ mod test {
     #[test]
     fn evaluate_escaped_key_step() {
         assert_eq!(
-            json!("value3"),
+            json!("value4"),
             BasicIdentifierExpression::new("action").evaluate(
                 &[
                     Ast::EscapedKeyStep("key2".to_string()),
@@ -190,6 +191,20 @@ mod test {
             json!(5),
             BasicIdentifierExpression::new("action").evaluate(
                 &[Ast::KeyStep("array2".to_string()), get_expr_key_step()],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_recursive_key_step() {
+        assert_eq!(
+            json!(["value1", "value4", "value2", "value3"]),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[
+                    Ast::RecursiveKeyStep("key".to_string()),
+                    get_expr_key_step()
+                ],
                 Arc::new(RwLock::new(get_data()))
             )
         );
