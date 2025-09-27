@@ -32,6 +32,12 @@ pub use value_stream::ValueStream;
 mod eval_op;
 pub(crate) use eval_op::EvalOp;
 
+mod eval_lazy_and;
+pub(crate) use eval_lazy_and::EvalLazyAnd;
+
+mod eval_lazy_or;
+pub(crate) use eval_lazy_or::EvalLazyOr;
+
 mod eval_basic_function;
 pub(crate) use eval_basic_function::EvalBasicFunction;
 
@@ -43,6 +49,22 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         Self: Sized,
     {
         EvalOp::new(self, other, op_fn)
+    }
+
+    fn eval_lazy_and<U>(self, other: U) -> EvalLazyAnd<Self, U>
+    where
+        U: Stream<Item = Result<Val, String>> + Send,
+        Self: Sized,
+    {
+        EvalLazyAnd::new(self, other)
+    }
+
+    fn eval_lazy_or<U>(self, other: U) -> EvalLazyOr<Self, U>
+    where
+        U: Stream<Item = Result<Val, String>> + Send,
+        Self: Sized,
+    {
+        EvalLazyOr::new(self, other)
     }
 
     fn eval_basic_function<F>(self, basic_fn: F) -> EvalBasicFunction<Self, F>

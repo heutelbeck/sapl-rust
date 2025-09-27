@@ -57,3 +57,39 @@ fn evaluate_with_variable_assignement() {
     let result = policy.unwrap().evaluate(&auth_sub());
     assert_eq!("Decision: PERMIT".to_string(), result.to_string());
 }
+
+#[test]
+fn evaluate_lazy_and_permit() {
+    let policy =
+        parse_sapl_file("policy \"var\" permit where subject == \"WILLI\" && action == \"read\";");
+    assert!(policy.is_ok());
+    let result = policy.unwrap().evaluate(&auth_sub());
+    assert_eq!("Decision: PERMIT".to_string(), result.to_string());
+}
+
+#[test]
+fn evaluate_lazy_and_not_applicable() {
+    let policy =
+        parse_sapl_file("policy \"var\" permit where subject == \"ILLIW\" && action == \"read\";");
+    assert!(policy.is_ok());
+    let result = policy.unwrap().evaluate(&auth_sub());
+    assert_eq!("Decision: NOT_APPLICABLE".to_string(), result.to_string());
+}
+
+#[test]
+fn evaluate_lazy_or_permit() {
+    let policy =
+        parse_sapl_file("policy \"var\" permit where subject == \"WILLI\" || action == \"demo\";");
+    assert!(policy.is_ok());
+    let result = policy.unwrap().evaluate(&auth_sub());
+    assert_eq!("Decision: PERMIT".to_string(), result.to_string());
+}
+
+#[test]
+fn evaluate_lazy_or_not_applicable() {
+    let policy =
+        parse_sapl_file("policy \"var\" permit where subject == \"WIL\" || action == \"demo\";");
+    assert!(policy.is_ok());
+    let result = policy.unwrap().evaluate(&auth_sub());
+    assert_eq!("Decision: NOT_APPLICABLE".to_string(), result.to_string());
+}

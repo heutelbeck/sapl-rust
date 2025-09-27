@@ -416,8 +416,20 @@ impl Ast {
                     &lhs.evaluate_inner(variable_context.clone()),
                     &rhs.evaluate_inner(variable_context.clone()),
                 ),
-                Op::LazyAnd => panic!(),
-                Op::LazyOr => panic!(),
+                Op::LazyAnd => match lhs.evaluate_inner(variable_context.clone()) {
+                    Ok(Val::Boolean(true)) => rhs.evaluate_inner(variable_context.clone()),
+                    Ok(Val::Boolean(false)) => Ok(Val::Boolean(false)),
+                    other => Err(format!(
+                        "Type mismatch. Lazy and operation expects boolean values, but got: {other:#?}"
+                    )),
+                },
+                Op::LazyOr => match lhs.evaluate_inner(variable_context.clone()) {
+                    Ok(Val::Boolean(true)) => Ok(Val::Boolean(true)),
+                    Ok(Val::Boolean(false)) => rhs.evaluate_inner(variable_context.clone()),
+                    other => Err(format!(
+                        "Type mismatch. Lazy or operation expects boolean values, but got: {other:#?}"
+                    )),
+                },
                 Op::Less => le(
                     &lhs.evaluate_inner(variable_context.clone()),
                     &rhs.evaluate_inner(variable_context.clone()),
@@ -624,8 +636,14 @@ impl Eval for Ast {
                     lhs.eval(auth_subscription.clone())
                         .eval_op(rhs.eval(auth_subscription.clone()), ge_eq),
                 ),
-                Op::LazyAnd => panic!(),
-                Op::LazyOr => panic!(),
+                Op::LazyAnd => Box::pin(
+                    lhs.eval(auth_subscription.clone())
+                        .eval_lazy_and(rhs.eval(auth_subscription.clone())),
+                ),
+                Op::LazyOr => Box::pin(
+                    lhs.eval(auth_subscription.clone())
+                        .eval_lazy_or(rhs.eval(auth_subscription.clone())),
+                ),
                 Op::Less => Box::pin(
                     lhs.eval(auth_subscription.clone())
                         .eval_op(rhs.eval(auth_subscription.clone()), le),
@@ -1167,6 +1185,37 @@ mod tests {
     }
 
     #[test]
+    fn evaluate_bool_lazy_and() {
+        let pair = SaplParser::parse(Rule::target_expression, "true && true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+        let pair = SaplParser::parse(Rule::target_expression, "true && false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(!expr.unwrap());
+        let pair = SaplParser::parse(Rule::target_expression, "true && true && true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
     fn evaluate_bool_eager_or() {
         let pair = SaplParser::parse(Rule::target_expression, "false | true")
             .unwrap()
@@ -1187,6 +1236,37 @@ mod tests {
         assert!(expr.is_ok());
         assert!(!expr.unwrap());
         let pair = SaplParser::parse(Rule::target_expression, "false | false | true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_bool_lazy_or() {
+        let pair = SaplParser::parse(Rule::target_expression, "false || true")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+        let pair = SaplParser::parse(Rule::target_expression, "false || false")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription1(),
+        )));
+        assert!(expr.is_ok());
+        assert!(!expr.unwrap());
+        let pair = SaplParser::parse(Rule::target_expression, "false || false || true")
             .unwrap()
             .next()
             .unwrap();
