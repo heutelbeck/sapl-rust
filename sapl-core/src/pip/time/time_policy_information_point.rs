@@ -30,7 +30,7 @@ pub struct Time {
 
 impl Default for Time {
     fn default() -> Self {
-        let mut interval = interval(Duration::from_millis(1));
+        let mut interval = interval(Duration::from_millis(1000));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         Self { interval }
     }
