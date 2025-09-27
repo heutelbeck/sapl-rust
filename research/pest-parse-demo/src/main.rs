@@ -180,7 +180,7 @@ fn sync_demo_part() {
                 Err(msg) => println!("{msg}"),
             }
             println!();
-        };
+        }
     }
     {
         let policy_with_unvalid_target_expr =
@@ -191,7 +191,7 @@ fn sync_demo_part() {
                 Err(msg) => println!("{msg}"),
             }
             println!();
-        };
+        }
     }
     {
         let policy_with_unvalid_target_expr = parse_sapl_file(
@@ -203,7 +203,7 @@ fn sync_demo_part() {
                 Err(msg) => println!("{msg}"),
             }
             println!();
-        };
+        }
     }
     {
         let schema =
