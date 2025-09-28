@@ -26,12 +26,8 @@ async fn main() {
 
 async fn stream_debug_pdp() {
     let pdp = Pdp::new(
-        Some(Path::new(
-            "/home/stefan/Dokumente/uni/Thesis/sapl-rust/sapl-server-rs/policies/pdp.json",
-        )),
-        Some(Path::new(
-            "/home/stefan/Dokumente/uni/Thesis/sapl-rust/sapl-server-rs/policies/",
-        )),
+        Some(Path::new("../../sapl-server-rs/policies/pdp.json")),
+        Some(Path::new("../../sapl-server-rs/policies/")),
     );
 
     let mut decision = pdp.decide(auth_sub());
