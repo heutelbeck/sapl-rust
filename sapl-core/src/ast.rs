@@ -65,7 +65,6 @@ pub enum Ast {
     Boolean(bool),
     Integer(i64),
     Float(Decimal),
-    SignedNumber(String),
     String(String),
     Id(String),
     KeyStep(String),
@@ -127,7 +126,6 @@ impl Clone for Ast {
             Ast::Boolean(val) => Ast::Boolean(*val),
             Ast::Integer(val) => Ast::Integer(*val),
             Ast::Float(val) => Ast::Float(*val),
-            Ast::SignedNumber(val) => Ast::SignedNumber(val.clone()),
             Ast::String(val) => Ast::String(val.clone()),
             Ast::Id(val) => Ast::Id(val.clone()),
             Ast::KeyStep(val) => Ast::KeyStep(val.clone()),
@@ -221,7 +219,7 @@ impl Ast {
                 Rule::array => Ast::Array(Arc::from(
                     pair.into_inner().map(parse_basics).collect::<Vec<_>>(),
                 )),
-                Rule::signed_number => Ast::SignedNumber(pair.as_str().to_string()),
+                Rule::signed_number => Ast::Integer(pair.as_str().trim().parse().unwrap()),
                 Rule::key_step => Ast::KeyStep(pair.as_str().to_string()),
                 Rule::index_step => Ast::IndexStep(pair.as_str().trim().parse().unwrap()),
                 Rule::expression_step => {
@@ -812,7 +810,6 @@ impl Iterator for ExprIter {
                 | Ast::Boolean(_)
                 | Ast::Integer(_)
                 | Ast::Float(_)
-                | Ast::SignedNumber(_)
                 | Ast::String(_)
                 | Ast::Id(_)
                 | Ast::BasicRelativeStep
@@ -1574,6 +1571,19 @@ mod tests {
         .unwrap()
         .next()
         .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_index_union_step() {
+        let pair = SaplParser::parse(Rule::target_expression, "action.array2[2, 3] == [3, 4]")
+            .unwrap()
+            .next()
+            .unwrap();
         let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
             AuthorizationSubscription::new_example_subscription5(),
         )));
