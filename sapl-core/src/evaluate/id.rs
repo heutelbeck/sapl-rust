@@ -16,7 +16,8 @@
 
 use crate::Ast;
 use crate::evaluate::{
-    expression_step, index_step, key_step, recursive_index_step, recursive_key_step, wildcard_step,
+    attribute_union_step, expression_step, index_step, key_step, recursive_index_step,
+    recursive_key_step, wildcard_step,
 };
 use serde_json::Value;
 use std::sync::{Arc, RwLock};
@@ -39,6 +40,7 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: Arc<RwLock<Value>>) -> Valu
                 }
                 Some(Ast::RecursiveKeyStep(s)) => recursive_key_step::evaluate(s, data),
                 Some(Ast::RecursiveIndexStep(i)) => recursive_index_step::evaluate(*i, data),
+                Some(Ast::AttributeUnionStep(k)) => attribute_union_step::evaluate(k, data),
                 None => data.clone(),
                 _ => Value::Null,
             },
@@ -166,6 +168,24 @@ mod test {
             evaluate(
                 "id",
                 &[Ast::RecursiveIndexStep(0)],
+                Arc::new(RwLock::new(get_data_id()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_attribute_union_step() {
+        assert_eq!(
+            json!(["value1", [1, 2, 3, 4, 5]]),
+            evaluate(
+                "id",
+                &[
+                    Ast::AttributeUnionStep(Arc::from(vec![
+                        Ast::String("key".to_string()),
+                        Ast::String("array2".to_string())
+                    ])),
+                    get_expr_key_step()
+                ],
                 Arc::new(RwLock::new(get_data_id()))
             )
         );

@@ -23,8 +23,8 @@ use std::{
 use crate::{
     Ast,
     evaluate::{
-        expression_step, index_step, key_step, recursive_index_step, recursive_key_step,
-        wildcard_step,
+        attribute_union_step, expression_step, index_step, key_step, recursive_index_step,
+        recursive_key_step, wildcard_step,
     },
 };
 
@@ -70,6 +70,7 @@ impl BasicIdentifierExpression {
             }
             Some(Ast::RecursiveKeyStep(s)) => recursive_key_step::evaluate(s, &src),
             Some(Ast::RecursiveIndexStep(i)) => recursive_index_step::evaluate(*i, &src),
+            Some(Ast::AttributeUnionStep(k)) => attribute_union_step::evaluate(k, &src),
             None => src.clone(),
             _ => Value::Null,
         }
@@ -219,6 +220,23 @@ mod test {
             json!([{"key": "value2"}, 1]),
             BasicIdentifierExpression::new("action").evaluate(
                 &[Ast::RecursiveIndexStep(0), get_expr_key_step()],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_attribute_union_step() {
+        assert_eq!(
+            json!(["value1", [1, 2, 3, 4, 5]]),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[
+                    Ast::AttributeUnionStep(Arc::from(vec![
+                        Ast::String("key".to_string()),
+                        Ast::String("array2".to_string())
+                    ])),
+                    get_expr_key_step()
+                ],
                 Arc::new(RwLock::new(get_data()))
             )
         );

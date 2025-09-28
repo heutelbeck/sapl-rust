@@ -1566,6 +1566,22 @@ mod tests {
     }
 
     #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_attribute_union_step() {
+        let pair = SaplParser::parse(
+            Rule::target_expression,
+            "action[\"key\", \"array2\"] == [\"value1\", [1, 2, 3, 4, 5]]",
+        )
+        .unwrap()
+        .next()
+        .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
     fn validate_target_expr_without_error() {
         let pair = SaplParser::parse(Rule::target_expression, "false | 5 < 20 & 1 > 50 | true")
             .unwrap()
