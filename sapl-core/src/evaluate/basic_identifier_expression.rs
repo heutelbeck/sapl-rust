@@ -23,8 +23,8 @@ use std::{
 use crate::{
     Ast,
     evaluate::{
-        attribute_union_step, expression_step, index_step, index_union_step, key_step,
-        recursive_index_step, recursive_key_step, wildcard_step,
+        array_slicing_step, attribute_union_step, expression_step, index_step, index_union_step,
+        key_step, recursive_index_step, recursive_key_step, wildcard_step,
     },
 };
 
@@ -72,6 +72,7 @@ impl BasicIdentifierExpression {
             Some(Ast::RecursiveIndexStep(i)) => recursive_index_step::evaluate(*i, &src),
             Some(Ast::AttributeUnionStep(k)) => attribute_union_step::evaluate(k, &src),
             Some(Ast::IndexUnionStep(k)) => index_union_step::evaluate(k, &src),
+            Some(Ast::ArraySlicingStep(k)) => array_slicing_step::evaluate(k, &src),
             None => src.clone(),
             _ => Value::Null,
         }
@@ -264,6 +265,25 @@ mod test {
             json!(["value1", "value4", [{"key": "value2"}, {"key": "value3"}], [1, 2, 3, 4, 5]]),
             BasicIdentifierExpression::new("action").evaluate(
                 &[Ast::WildcardStep, get_expr_key_step()],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_array_slicing_step() {
+        assert_eq!(
+            json!([1, 3]),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[
+                    Ast::KeyStep("array2".to_string()),
+                    Ast::ArraySlicingStep(Arc::from(vec![
+                        Ast::Integer(0),
+                        Ast::Integer(-2),
+                        Ast::Integer(2)
+                    ])),
+                    get_expr_key_step()
+                ],
                 Arc::new(RwLock::new(get_data()))
             )
         );

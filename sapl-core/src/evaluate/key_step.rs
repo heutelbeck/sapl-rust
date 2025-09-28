@@ -16,8 +16,8 @@
 
 use crate::Ast;
 use crate::evaluate::{
-    attribute_union_step, expression_step, index_step, index_union_step, recursive_index_step,
-    recursive_key_step, wildcard_step,
+    array_slicing_step, attribute_union_step, expression_step, index_step, index_union_step,
+    recursive_index_step, recursive_key_step, wildcard_step,
 };
 use serde_json::Value;
 
@@ -36,6 +36,7 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: &Value) -> Value {
             Some(Ast::RecursiveIndexStep(i)) => recursive_index_step::evaluate(*i, data),
             Some(Ast::AttributeUnionStep(k)) => attribute_union_step::evaluate(k, data),
             Some(Ast::IndexUnionStep(k)) => index_union_step::evaluate(k, data),
+            Some(Ast::ArraySlicingStep(k)) => array_slicing_step::evaluate(k, data),
             None => data.clone(),
             _ => Value::Null,
         },

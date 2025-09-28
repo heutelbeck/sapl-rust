@@ -1619,6 +1619,20 @@ mod tests {
     }
 
     #[test]
+    fn evaluate_target_expr_basic_identifier_expression_action3_arry_slicing_step1() {
+        let pair = SaplParser::parse(Rule::target_expression, "action.array2[0:-2:2] == [1, 3]")
+            .unwrap()
+            .next()
+            .unwrap();
+        let expr = Ast::parse(pair.into_inner()).evaluate(Arc::new(RwLock::new(
+            AuthorizationSubscription::new_example_subscription5(),
+        )));
+        println!("{:#?}", expr);
+        assert!(expr.is_ok());
+        assert!(expr.unwrap());
+    }
+
+    #[test]
     fn validate_target_expr_without_error() {
         let pair = SaplParser::parse(Rule::target_expression, "false | 5 < 20 & 1 > 50 | true")
             .unwrap()

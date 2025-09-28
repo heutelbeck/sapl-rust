@@ -90,6 +90,8 @@ pub(crate) mod attribute_union_step;
 
 pub(crate) mod index_union_step;
 
+pub(crate) mod array_slicing_step;
+
 pub(crate) mod id;
 
 mod variable_assignment;
