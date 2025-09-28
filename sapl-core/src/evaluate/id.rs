@@ -32,9 +32,7 @@ pub(crate) fn evaluate(key: &str, keys: &[Ast], src: Arc<RwLock<Value>>) -> Valu
                 Some(Ast::IndexStep(i)) => {
                     index_step::evaluate(*i, keys.get(1..).unwrap_or(&[]), data)
                 }
-                Some(Ast::WildcardStep) => {
-                    wildcard_step::evaluate(keys.get(1..).unwrap_or(&[]), data)
-                }
+                Some(Ast::WildcardStep) => wildcard_step::evaluate(data),
                 Some(Ast::ExpressionStep(s)) => {
                     expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), data)
                 }
@@ -187,6 +185,34 @@ mod test {
                     ])),
                     get_expr_key_step()
                 ],
+                Arc::new(RwLock::new(get_data_id()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_index_union_step() {
+        assert_eq!(
+            json!([3, 4]),
+            evaluate(
+                "id",
+                &[
+                    Ast::KeyStep("array2".to_string()),
+                    Ast::IndexUnionStep(Arc::from(vec![Ast::Integer(2), Ast::Integer(3)])),
+                    get_expr_key_step()
+                ],
+                Arc::new(RwLock::new(get_data_id()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_wildcard_step() {
+        assert_eq!(
+            json!(["value1", "value4", [{"key": "value2"}, {"key": "value3"}], [1, 2, 3, 4, 5]]),
+            evaluate(
+                "id",
+                &[Ast::WildcardStep, get_expr_key_step()],
                 Arc::new(RwLock::new(get_data_id()))
             )
         );

@@ -31,15 +31,6 @@ pub(crate) fn evaluate(keys: &Arc<[Ast]>, src: &Value) -> Value {
 
                 if let Ok(index) = usize::try_from(num) {
                     src.get(index).cloned()
-
-                // .map(|data| data.clone())
-                // match src.get(index) {
-                //     Some(data) => Some(data.clone()),
-                //     // Some(Value::String(s)) => Some(Value::String(s.clone())),
-                //     // Some(Value::Number(n)) => Some(Value::Number(n.clone())),
-                //     // Some(Value::Bool(b)) => Some(Value::Bool(*b)),
-                //     _ => None,
-                // }
                 } else {
                     None
                 }

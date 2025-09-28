@@ -14,10 +14,56 @@
     under the License.
 */
 
-use crate::Ast;
 use serde_json::Value;
 
-pub(crate) fn evaluate(keys: &[Ast], src: &Value) -> Value {
-    println!("Daten sind: {:#?} - {:#?}", keys, src);
-    Value::Null
+pub(crate) fn evaluate(src: &Value) -> Value {
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    match src {
+        Value::Object(obj) => {
+            for (_, v) in obj {
+                if v.is_object() || v.is_array() {
+                    let sub_results = evaluate(v);
+                    if let Value::Array(sub_arr) = sub_results {
+                        results.extend(sub_arr);
+                    } else {
+                        results.push(sub_results);
+                    }
+                } else {
+                    results.push(v.clone());
+                }
+            }
+        }
+        Value::Null => {}
+        _ => results.push(src.clone()),
+    }
+
+    Value::Array(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn get_data() -> Value {
+        json!({
+            "key" : "value1",
+            "array1" : [
+                { "key" : "value2" },
+                { "key" : "value3" }
+            ],
+            "array2" : [
+                1, 2, 3, 4, 5
+            ]
+        })
+    }
+
+    #[test]
+    fn evaluate_index_step() {
+        assert_eq!(
+            json!(["value1", [{"key": "value2"}, {"key": "value3"}], [1, 2, 3, 4, 5]]),
+            evaluate(&get_data())
+        );
+    }
 }

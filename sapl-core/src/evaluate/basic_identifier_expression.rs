@@ -64,7 +64,7 @@ impl BasicIdentifierExpression {
                 key_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
             }
             Some(Ast::IndexStep(i)) => index_step::evaluate(*i, keys.get(1..).unwrap_or(&[]), &src),
-            Some(Ast::WildcardStep) => wildcard_step::evaluate(keys.get(1..).unwrap_or(&[]), &src),
+            Some(Ast::WildcardStep) => wildcard_step::evaluate(&src),
             Some(Ast::ExpressionStep(s)) => {
                 expression_step::evaluate(s, keys.get(1..).unwrap_or(&[]), &src)
             }
@@ -253,6 +253,17 @@ mod test {
                     Ast::IndexUnionStep(Arc::from(vec![Ast::Integer(2), Ast::Integer(3)])),
                     get_expr_key_step()
                 ],
+                Arc::new(RwLock::new(get_data()))
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_wildcard_step() {
+        assert_eq!(
+            json!(["value1", "value4", [{"key": "value2"}, {"key": "value3"}], [1, 2, 3, 4, 5]]),
+            BasicIdentifierExpression::new("action").evaluate(
+                &[Ast::WildcardStep, get_expr_key_step()],
                 Arc::new(RwLock::new(get_data()))
             )
         );
