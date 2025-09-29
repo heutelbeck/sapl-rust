@@ -227,9 +227,9 @@ mod test {
                 &[
                     Ast::KeyStep("array2".to_string()),
                     Ast::ArraySlicingStep(Arc::from(vec![
-                        Ast::Integer(0),
-                        Ast::Integer(-2),
-                        Ast::Integer(2)
+                        Ast::ArraySlicingStart(0),
+                        Ast::ArraySlicingEnd(-2),
+                        Ast::ArraySlicingStepSize(2)
                     ])),
                     get_expr_key_step()
                 ],

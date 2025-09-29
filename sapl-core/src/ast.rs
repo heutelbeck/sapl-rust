@@ -64,6 +64,9 @@ pub enum Ast {
     Subscript(Arc<Ast>),
     Boolean(bool),
     Integer(i64),
+    ArraySlicingStart(i64),
+    ArraySlicingEnd(i64),
+    ArraySlicingStepSize(i64),
     Float(Decimal),
     String(String),
     Id(String),
@@ -133,6 +136,9 @@ impl Clone for Ast {
             Ast::IndexUnionStep(expr) => Ast::IndexUnionStep(Arc::clone(expr)),
             Ast::AttributeUnionStep(expr) => Ast::AttributeUnionStep(Arc::clone(expr)),
             Ast::ArraySlicingStep(expr) => Ast::ArraySlicingStep(Arc::clone(expr)),
+            Ast::ArraySlicingStart(val) => Ast::ArraySlicingStart(*val),
+            Ast::ArraySlicingEnd(val) => Ast::ArraySlicingEnd(*val),
+            Ast::ArraySlicingStepSize(val) => Ast::ArraySlicingStepSize(*val),
             Ast::EscapedKeyStep(val) => Ast::EscapedKeyStep(val.clone()),
             Ast::ExpressionStep(val) => Ast::ExpressionStep(val.clone()),
             Ast::ConditionStep(val) => Ast::ConditionStep(val.clone()),
@@ -257,6 +263,15 @@ impl Ast {
                 )),
                 Rule::string => Ast::new_string(pair.as_str()),
                 Rule::integer => Ast::Integer(pair.as_str().trim().parse().unwrap()),
+                Rule::array_slicing_start => {
+                    Ast::ArraySlicingStart(pair.as_str().trim().parse().unwrap())
+                }
+                Rule::array_slicing_end => {
+                    Ast::ArraySlicingEnd(pair.as_str().trim().parse().unwrap())
+                }
+                Rule::array_slicing_step_size => {
+                    Ast::ArraySlicingStepSize(pair.as_str().trim().parse().unwrap())
+                }
                 Rule::id => Ast::Id(pair.as_str().to_string()),
                 Rule::basic_relative_step => Ast::BasicRelativeStep,
                 Rule::div => Ast::Div,
@@ -807,6 +822,9 @@ impl Iterator for ExprIter {
                 | Ast::AttributeFinderStep(_)
                 | Ast::HeadAttributeFinderStep(_)
                 | Ast::BasicIdentifierExpression(_)
+                | Ast::ArraySlicingStart(_)
+                | Ast::ArraySlicingEnd(_)
+                | Ast::ArraySlicingStepSize(_)
                 | Ast::Boolean(_)
                 | Ast::Integer(_)
                 | Ast::Float(_)

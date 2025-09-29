@@ -15,6 +15,7 @@
 */
 
 use crate::Ast;
+use log::error;
 use rust_decimal::prelude::Signed;
 use serde_json::Value;
 use std::sync::Arc;
@@ -24,25 +25,52 @@ pub(crate) fn evaluate(key: &Arc<[Ast]>, src: &Value) -> Value {
 
     match src {
         Value::Array(arr) => {
-            let start = match key.first() {
-                Some(Ast::Integer(i)) => *i,
-                _ => 0,
-            };
-            let end = match key.get(1) {
-                Some(Ast::Integer(i)) => match i.is_negative() {
-                    true => arr.len() as i64 + *i,
-                    false => *i,
-                },
-                _ => 0,
-            };
-            let step: usize = match key.get(2) {
-                Some(Ast::Integer(i)) => usize::try_from(*i).unwrap(),
-                _ => 1,
+            let mut start = (0, false);
+            let mut end = (arr.len() as i64, false);
+            let mut step = 1;
+
+            for entry in key.iter() {
+                match entry {
+                    Ast::ArraySlicingStart(i) => {
+                        start = (*i, true);
+                    }
+                    Ast::ArraySlicingEnd(i) => match i.is_negative() {
+                        true => {
+                            end = (arr.len() as i64 + *i, true);
+                        }
+                        false => {
+                            end = (*i, true);
+                        }
+                    },
+                    Ast::ArraySlicingStepSize(i) => {
+                        step = *i;
+                    }
+                    other => {
+                        error!(
+                            "Type mismatch. Array slicing evaluation expects ArraySlicingStart, ArraySlicingEnd or ArraySlicingStepSize, but got: {other:#?}"
+                        );
+                    }
+                };
+            }
+
+            let range: Vec<i64> = if step.is_negative() {
+                if !start.1 {
+                    start = (arr.len() as i64 - 1, true); //start defaults to arr.len() -1
+                };
+                if !end.1 {
+                    end = (-1, true); //end defaults to minus one
+                };
+                (end.0..=start.0).rev().collect()
+            } else {
+                (start.0..end.0).collect()
             };
 
             assert_ne!(0, step, "array slicing step zero is not allowed");
 
-            for i in (start..end).step_by(step) {
+            for i in range
+                .into_iter()
+                .step_by(usize::try_from(step.abs()).unwrap())
+            {
                 if let Ok(index) = usize::try_from(i)
                     && let Some(data) = arr.get(index)
                 {
@@ -76,7 +104,11 @@ mod tests {
         assert_eq!(
             json!([1, 3, 5]),
             evaluate(
-                &Arc::from(vec![Ast::Integer(0), Ast::Integer(100), Ast::Integer(2)]),
+                &Arc::from(vec![
+                    Ast::ArraySlicingStart(0),
+                    Ast::ArraySlicingEnd(100),
+                    Ast::ArraySlicingStepSize(2)
+                ]),
                 &get_array1()
             )
         );
@@ -87,18 +119,26 @@ mod tests {
         assert_eq!(
             json!([4]),
             evaluate(
-                &Arc::from(vec![Ast::Integer(3), Ast::Integer(100), Ast::Integer(2)]),
+                &Arc::from(vec![
+                    Ast::ArraySlicingStart(3),
+                    Ast::ArraySlicingEnd(100),
+                    Ast::ArraySlicingStepSize(2)
+                ]),
                 &get_array1()
             )
         );
     }
 
     #[test]
-    fn evaluate_array1_negtive_end_with_step() {
+    fn evaluate_array1_negative_end_with_step() {
         assert_eq!(
             json!([1, 3]),
             evaluate(
-                &Arc::from(vec![Ast::Integer(0), Ast::Integer(-2), Ast::Integer(2)]),
+                &Arc::from(vec![
+                    Ast::ArraySlicingStart(0),
+                    Ast::ArraySlicingEnd(-2),
+                    Ast::ArraySlicingStepSize(2)
+                ]),
                 &get_array1()
             )
         );
@@ -109,20 +149,55 @@ mod tests {
         assert_eq!(
             json!([1, 2, 3, 4, 5]),
             evaluate(
-                &Arc::from(vec![Ast::Integer(0), Ast::Integer(100)]),
+                &Arc::from(vec![Ast::ArraySlicingStart(0), Ast::ArraySlicingEnd(100)]),
                 &get_array1()
             )
         );
     }
 
     #[test]
-    fn evaluate_array1_negtive_end_without_step() {
+    fn evaluate_array1_negative_end_without_step() {
         assert_eq!(
             json!([1, 2, 3]),
             evaluate(
-                &Arc::from(vec![Ast::Integer(0), Ast::Integer(-2)]),
+                &Arc::from(vec![Ast::ArraySlicingStart(0), Ast::ArraySlicingEnd(-2)]),
                 &get_array1()
             )
+        );
+    }
+
+    #[test]
+    fn evaluate_array1_only_negative_step_size() {
+        assert_eq!(
+            json!([5, 3, 1]),
+            evaluate(
+                &Arc::from(vec![Ast::ArraySlicingStepSize(-2)]),
+                &get_array1()
+            )
+        );
+    }
+
+    #[test]
+    fn evaluate_array1_only_start() {
+        assert_eq!(
+            json!([3, 4, 5]),
+            evaluate(&Arc::from(vec![Ast::ArraySlicingStart(2)]), &get_array1())
+        );
+    }
+
+    #[test]
+    fn evaluate_array1_only_end() {
+        assert_eq!(
+            json!([1, 2, 3]),
+            evaluate(&Arc::from(vec![Ast::ArraySlicingEnd(3)]), &get_array1())
+        );
+    }
+
+    #[test]
+    fn evaluate_array1_without_any_parameter() {
+        assert_eq!(
+            json!([1, 2, 3, 4, 5]),
+            evaluate(&Arc::from(vec![]), &get_array1())
         );
     }
 }
