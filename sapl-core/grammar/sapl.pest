@@ -224,7 +224,13 @@ subscript = _{ attribute_union_step
 
 index_step = @{ signed_number }
 
-array_slicing_step = { signed_number ~ ":" ~ signed_number ~ ( ":" ~ signed_number )?}
+array_slicing_step = { array_slicing_start? ~ ":" ~ array_slicing_end? ~ (":" ~ array_slicing_step_size)? }
+
+array_slicing_start = @{ signed_number }
+
+array_slicing_end = @{ signed_number }
+
+array_slicing_step_size = @{ signed_number }
 
 expression_step = { "(" ~ condition ~ ")" }
 
