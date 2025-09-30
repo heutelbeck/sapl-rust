@@ -1,6 +1,9 @@
 # Demo embedded-pdp
 
-This application is a minimal example of how the crate embedded-pdp can be used. The application uses the Crate embedded-pdp for the SAPL functionalities. A pdp instance is created in main() and passed as a parameter to the two functions decide() and decide-once(). The decide-once() method is synchronous and returns a single result. The decide() method is a stream. This method returns an update as soon as the pdp's decision changes.
+This application is a minimal example of how the crate embedded-pdp can be used. The application uses the crate embedded-pdp for the SAPL functionalities.
+
+A pdp instance is created in `main()` and passed as a parameter to the two functions `decide()` and `decide-once()`. The `decide-once()` method is synchronous and prints the result it gets from the `pdp.decide_once()` function.
+The `decide()` method consumes a stream from the pdp instance and print every update as soon as the pdp decision changes.
 
 > [!NOTE]
 > It is best to clone the entire repository, then this application can be started without having to change any paths.

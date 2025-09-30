@@ -8,14 +8,91 @@ This server is a Policy Decision Point (PDP) implemented in [Rust](https://www.r
 
 If Rust has not yet been installed, please follow the [installation instructions](../README.md#prerequisites).
 
+> [!TIP]
+> To ensure that the application is compiled without errors, please clone the entire repository and not just copy the sapl-server-rs project.
+
 The following command compiles the application if necessary and then executes it.
 
 ```
 cargo run
 ```
 
-> [!TIP]
-> To ensure that the application is compiled without errors, please clone the entire repository and not just copy the sapl-server-rs project.
+If the application is running and the configuration is unchanged, the endpoints can be tested using simple `curl` commands. The policies from [sapl-webflux-demo](https://github.com/heutelbeck/sapl-demos/tree/master/sapl-demo-webflux) are already included and can be used directly.
+
+Of course, other policies can be stored, and with the correct connection configuration, the pdp can be used with other SAPL PEPs.
+
+This request will show you the status and version of the pdp instance.
+```
+curl --insecure --request GET --url https://127.0.0.1:8443/api/pdp/health
+```
+
+This will give you a decision with an obligation as response.
+```
+curl --insecure --request POST \
+  --url https://127.0.0.1:8443/api/pdp/decide \
+  --header 'content-type: application/json' \
+  --data '{
+  "subject": "WILLI",
+  "action": {
+    "http": {
+        "contextPath": "/string"
+    }
+  },
+  "resource": "something"
+}'
+```
+
+This will give you a decision with an obligation and a resource.
+```
+curl --insecure --request POST \
+  --url https://127.0.0.1:8443/api/pdp/decide \
+  --header 'content-type: application/json' \
+  --data '{
+  "subject": {
+    "name": "admin"
+  },
+  "action": {
+    "http": {
+        "contextPath": "/changedstring",
+        "requestedURI": "http://127.0.0.1:8080/changedstring"
+    }
+  },
+  "resource": "something"
+}'
+```
+
+This will give you a stream of decisions with obligations, changed every 20 seconds. 
+
+```
+curl --insecure --request POST \
+  --url https://127.0.0.1:8443/api/pdp/decide \
+  --header 'content-type: application/json' \
+  --data '{
+  "subject":"WILLI",
+  "action": {
+    "java": {
+        "name": "getDocuments"
+    }
+  },
+  "resource": "something"
+}'
+```
+
+This will give you a stream with different kinds of decisions.
+```
+curl --insecure --request POST \
+  --url https://127.0.0.1:8443/api/pdp/decide \
+  --header 'content-type: application/json' \
+  --data '{
+  "subject":"WILLI",
+  "action": {
+    "java": {
+        "name": "getPatients"
+    }
+  },
+  "resource": "something"
+}'
+```
 
 ## Run Tests
 
