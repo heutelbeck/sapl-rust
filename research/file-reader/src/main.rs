@@ -31,7 +31,7 @@ fn main() {
 
     {
         let config_reader = shared_config.read().unwrap();
-        println!("Der aktuelle Algorithmus lautet: {config_reader:#?}");
+        println!("The algorithm is: {config_reader:#?}");
     }
 
     let (tx, rx) = channel();
@@ -88,6 +88,6 @@ fn update_pdp_config(
         config.update_algorithm();
         *last_event_time = Instant::now();
 
-        println!("Der aktuelle Algorithmus nach dem Update lautet: {config:#?}");
+        println!("The algorithm after the update is: {config:#?}");
     }
 }
