@@ -30,7 +30,6 @@ async fn main() {
         simple_stream_1(),
         simple_stream_2(),
         simple_stream_3(),
-        hello(),
         merge_stream(),
         filter_merge_stream(),
         combine_eager_solution1(),
@@ -40,11 +39,8 @@ async fn main() {
 }
 
 async fn stream_expr() {
-    //let mut e = Ast::Boolean(true).eval();
-    //println!("Die Expr lautet wie folgt: {:#?}", e.eval());
     let _e = Ast::Boolean(true).eval();
     let _e = Ast::Integer(42).eval().fuse();
-    //let mut e = Ast::BooleanStream(stream1).eval().fuse();
     let stream1 = BooleanIntervalNew::new(Duration::from_millis(1000));
     let stream2 = BooleanIntervalNew::new(Duration::from_millis(10000));
     let _e = stream1.eval_and(stream2);
@@ -136,10 +132,6 @@ async fn merge_stream() {
     while let Some(v) = rx.next().await {
         println!("merge_stream = {v:?}");
     }
-}
-
-async fn hello() {
-    println!("Hallo async");
 }
 
 async fn both_true_stream<

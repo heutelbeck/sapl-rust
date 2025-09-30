@@ -1,18 +1,34 @@
-# tokio stream tests
+# tokio stream demo
 
-In der Datei `src/main.rs` ab Zeile 34 werden alle Test Funktionen aufgerufen. Hier können nicht gewünschte Funktionen auskommentiert werden.
+The project was created at the beginning of rust sapl development to explore the handling of streams and evaluate different approaches.
+
+All test functions are called in the file `src/main.rs` in the `main()` function. Unwanted functions can be commented out here.
 
 ## Boolean streams
-Es gibt zwei Varianten von boolean streams, die mit einer definierten Taktzeit toggeln. Die erste Variante besteht aus den beiden Dateien
-* `src/boolean_stream.rs` implementiert das Trait (Interface) Stream mit der Methode `poll_next()`
-* `src/delay.rs` implementiert das Trait (Interface) Future mit der Methode `poll()`
+There are two variants of boolean streams that toggle with a defined clock cycle. The first variant consists of the two files
+* `src/boolean_stream.rs` implements the trait (interface) Stream with the method `poll_next()`
+* `src/delay.rs` implements the trait (interface) Future with the method `poll()`
 
-Die zweite Variante ist in `src/main.rs` in Zeile 79-81 zu finden. Dort wird ein AtomicBool und das Struct IntervalStream verwendet. Sehr kompakte Lösung.
+The second variant can be found in the function `simple_stream_1()`. It uses an AtomicBool and the Struct IntervalStream. A very compact solution.
 
-## Eager Varianten
-* Die erste Variante ist eine manuelle Implementierung, zu finden in der Datei `src/combine_eager.rs`. In dem Struct `CombineEager` wird der letzte Wert beider Streams gespeichert. In der Methode `poll_next()` wird in Zeile 62-63 beide Streams abgefragt und das Ergebnis als Tupel in dem match Block verarbeitet. In der Datei `src/main.rs` ist die Anwendung ab Zeile 17 zu finden.
-* Die zweite Variante arbeitet stark mit Marcos. Das führt zu deutlich kürzerem Code, es wird viel abstrahiert. Man muss allerdings auch wissen, wie das jeweilige Marko dazu gebracht werden kann, den gewünschten Code zu erzeugen. In der Datei `src/main.rs` ab Zeile 127 ist die Marko Lösung zu finden.
+## Eager variant
+* The first variant is a manual implementation, which can be found in the file `src/combine_eager.rs`. The last value of both streams is stored in the struct `CombineEager`. In the method `poll_next()`, both streams are queried in lines 62-63 and the result is processed as a tuple in the match block. The application can be found in the file `src/main.rs`  in the function `combine_eager_solution1()`.
+* The second variant works heavily with Marcos. This results in significantly shorter code, with a lot of abstraction. However, you also need to know how to get the respective Marko to generate the desired code. The Marko solution can be found in the function `both_true_stream()` in `src/main.rs`.
 
-## Lazy Variante
-Eine funktionierende Lösung mittels Markos ist mir noch nicht gelungen. Eine Implementierung von Hand ist in `src/combine_lazy.rs` zu finden. Im dazu gehörigen Struct wird wieder der jeweils letzte Zustand gespeichert. In der Methode `poll_next()` wird nun immer zuerst stream a abgefragt. Nur solange dieser true liefert wird auch der stream b abgefragt. Liefert auch der stream b true, gibt die Funktion `poll_next()` ein true weiter.
-In der Datei `src/main.rs` ist die Anwendung dieser Implementierung ab Zeile 46 zu finden.
+## Lazy variant
+I have not yet succeeded in finding a working solution using Markos. A manual implementation can be found in `src/combine_lazy.rs`. The last state is stored again in the corresponding struct. In the `poll_next()` method, stream a is always queried first. As long as it returns true stream b is queried. If stream b also returns true, the `poll_next()` function returns true.
+The application of this implementation can be found in the `src/main.rs` file with the function ` combine_lazy_solution1()`.
+
+## Prerequisites
+
+A Rust installation is required. The easiest way to install is via [rustup](https://rustup.rs/). Use at minimum rust version 1.88.0. After installation, the application can be compiled with cargo using the following command.
+
+```
+cargo build
+```
+
+Another option is to compile the application and run it directly.
+
+```
+cargo run
+```
