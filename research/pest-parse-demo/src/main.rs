@@ -14,33 +14,13 @@
     under the License.
 */
 
-use sapl_core::{authorization_subscription::AuthorizationSubscription, parse_sapl_file};
-use std::sync::Arc;
-use tokio_stream::StreamExt;
+use sapl_core::parse_sapl_file;
 
-#[tokio::main]
-async fn main() {
-    sync_demo_part();
-    tokio::join!(async_demo_part());
+fn main() {
+    parse_demo_policies();
 }
 
-async fn async_demo_part() {
-    //TODO async stuff
-    let time_policy =
-        parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;");
-
-    let auth_sub: AuthorizationSubscription =
-        serde_json::from_str(r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#)
-            .unwrap();
-
-    let mut p = time_policy.unwrap().evaluate_as_stream(&Arc::new(auth_sub));
-
-    while let Some(v) = p.next().await {
-        println!("evaluation stream: {v:#?}");
-    }
-}
-
-fn sync_demo_part() {
+fn parse_demo_policies() {
     {
         let policy_new = parse_sapl_file("policy \"policy 1\" permit");
         println!("{policy_new:#?}");
