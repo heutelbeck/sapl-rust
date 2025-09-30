@@ -14,40 +14,30 @@
     under the License.
 */
 
-use embedded_pdp::Pdp;
+use embedded_pdp::{AuthorizationSubscription, Pdp};
 use futures::StreamExt;
-use sapl_core::{authorization_subscription::AuthorizationSubscription, parse_sapl_file};
 use std::{path::Path, sync::Arc};
 
 #[tokio::main]
 async fn main() {
-    tokio::join!(stream_debug_pdp(), stream_debug());
-}
-
-async fn stream_debug_pdp() {
-    let pdp = Pdp::new(
+    let pdp = Arc::new(Pdp::new(
         Some(Path::new("../../sapl-server-rs/policies/pdp.json")),
         Some(Path::new("../../sapl-server-rs/policies/")),
-    );
+    ));
 
+    decide_once(pdp.clone());
+    tokio::join!(decide(pdp));
+}
+
+fn decide_once(pdp: Arc<Pdp>) {
+    println!("Pdp decide-once result: {:#?}", pdp.decide_once(auth_sub()));
+}
+
+async fn decide(pdp: Arc<Pdp>) {
     let mut decision = pdp.decide(auth_sub());
 
     while let Some(d) = decision.next().await {
         println!("{d:?}");
-    }
-}
-
-async fn stream_debug() {
-    let auth_sub = Arc::new(auth_sub());
-
-    let sapl_document =
-        parse_sapl_file("policy \"time change demo\" permit where time.secondOf(<time.now>) < 20;")
-            .unwrap();
-
-    let mut stream_sapl = sapl_document.evaluate_as_stream(&auth_sub);
-
-    while let Some(v) = stream_sapl.next().await {
-        println!("{v:?}");
     }
 }
 
