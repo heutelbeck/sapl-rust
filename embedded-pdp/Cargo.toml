@@ -28,15 +28,15 @@ readme = "README.md"
 rust-version = "1.88"
 
 [dependencies]
-futures = "0.3.31"
-notify = "8.0.0"
 sapl-core = { version = "0.1.0", path = "../sapl-core" }
-serde = { version = "1.0.197", features = ["derive"] }
-serde_json = "1.0.115"
-log = "0.4.27"
+futures.workspace = true
+notify.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+log.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { workspace = true, features = ["html_reports"] }
 
 [[bench]]
 name = "decide_once_benchmark"

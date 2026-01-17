@@ -28,20 +28,20 @@ readme = "README.md"
 rust-version = "1.88"
 
 [dependencies]
-lazy_static = "1.5.0"
-pest = "2.7.13"
-pest_derive = "2.7.13"
-serde_json = { version = "1.0.140", features = ["preserve_order"] }
-tokio-stream = "0.1.16"
-futures = "0.3.31"
-pin-project-lite = "0.2.15"
-serde = { version = "1.0.219", features = ["derive"] }
-tokio = { version = "1", features = ["full", "test-util", "macros"] }
-chrono = "0.4.41"
-rust_decimal = { version = "1.37.2", features = ["macros"] }
-log = "0.4.27"
+lazy_static.workspace = true
+pest.workspace = true
+pest_derive.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+tokio-stream.workspace = true
+futures.workspace = true
+pin-project-lite.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full", "test-util", "macros"] }
+chrono.workspace = true
+rust_decimal = { workspace = true, features = ["macros"] }
+log.workspace = true
 
 # Dev dependencies are used exclusively when running tests
 # They do not get included in the final application binary!
 [dev-dependencies]
-rstest = "0.25.0"
+rstest.workspace = true
