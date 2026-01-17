@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: Error { variant: ParsingError { positives: [entitlement], negatives: [] }, location: Pos(0), line_col: Pos((1, 1)), path: None, line: \"policy\", continued_line: None, parse_attempts: None }"
+        expected = "called `Result::unwrap()` on an `Err` value: Error { variant: ParsingError { positives: [entitlement], negatives: [] }, location: Pos(0), line_col: Pos((1, 1)), inner: ErrorInner { path: None, line: \"policy\", continued_line: None, parse_attempts: None } }"
     )]
     fn entitlement_fail() {
         let pair = SaplParser::parse(Rule::entitlement, "policy")
