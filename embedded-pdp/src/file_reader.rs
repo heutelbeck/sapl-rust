@@ -26,6 +26,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[inline]
 pub async fn file_reader(
     file_path: &Path,
     shared_config: Arc<RwLock<PdpConfig>>,

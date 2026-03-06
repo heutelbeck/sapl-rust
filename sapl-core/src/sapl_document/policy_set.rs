@@ -39,6 +39,7 @@ pub struct PolicySet {
 }
 
 impl PolicySet {
+    #[inline]
     pub fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
         let mut policy_set = PolicySet::default();
 
@@ -65,6 +66,7 @@ impl PolicySet {
         policy_set
     }
 
+    #[inline]
     pub fn validate(&self) -> Result<(), String> {
         let mut result = String::new();
 
@@ -81,6 +83,7 @@ impl PolicySet {
         }
     }
 
+    #[inline]
     pub fn evaluate(&self, auth_sub: Arc<RwLock<Value>>) -> AuthorizationDecision {
         use CombiningAlgorithm::*;
 
@@ -109,6 +112,7 @@ impl PolicySet {
         }
     }
 
+    #[inline]
     pub fn evaluate_as_stream(
         &self,
         auth_sub: Arc<RwLock<Value>>,

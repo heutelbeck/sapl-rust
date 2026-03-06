@@ -43,6 +43,7 @@ pub struct Pdp {
 }
 
 impl Pdp {
+    #[inline]
     pub fn new(config_file: Option<&Path>, policies_folder: Option<&Path>) -> Self {
         let cfg = match config_file {
             Some(p) => PdpConfig::new(p),
@@ -60,6 +61,7 @@ impl Pdp {
         }
     }
 
+    #[inline]
     pub fn decide_once(&self, auth_sub: AuthorizationSubscription) -> Value {
         use CombiningAlgorithm::*;
 
@@ -85,6 +87,7 @@ impl Pdp {
         }
     }
 
+    #[inline]
     pub fn decide(
         &self,
         auth_sub: AuthorizationSubscription,

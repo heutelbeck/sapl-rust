@@ -40,6 +40,7 @@ pub enum Decision {
 }
 
 impl Decision {
+    #[inline]
     pub fn entitlement(e: &Entitlement) -> Self {
         match e {
             Entitlement::Deny => Decision::Deny,
@@ -49,6 +50,7 @@ impl Decision {
 }
 
 impl Display for Decision {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let decision_str = match self {
             Decision::Permit => "PERMIT",

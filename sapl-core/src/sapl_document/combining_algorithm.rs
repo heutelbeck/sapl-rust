@@ -32,6 +32,7 @@ pub enum CombiningAlgorithm {
 }
 
 impl CombiningAlgorithm {
+    #[inline]
     pub(crate) fn new(s: &str) -> Self {
         if s.eq("deny-overrides") {
             CombiningAlgorithm::DENY_OVERRIDES
@@ -51,6 +52,7 @@ impl CombiningAlgorithm {
     }
 }
 
+#[inline]
 pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut permit = false;
     let mut combined: AuthorizationDecision = Decision::Permit.into();
@@ -83,6 +85,7 @@ pub fn deny_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authorizat
     Decision::NotApplicable.into()
 }
 
+#[inline]
 pub fn deny_unless_permit(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut combined = AuthorizationDecision::default();
 
@@ -98,6 +101,7 @@ pub fn deny_unless_permit(decisions: &[Option<AuthorizationDecision>]) -> Author
     combined
 }
 
+#[inline]
 pub fn first_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     for decision in decisions.iter().flatten() {
         if decision.decision != Decision::NotApplicable {
@@ -110,6 +114,7 @@ pub fn first_applicable(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     Decision::NotApplicable.into()
 }
 
+#[inline]
 pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut cnt = 0;
     let mut combined: AuthorizationDecision = Decision::NotApplicable.into();
@@ -138,6 +143,7 @@ pub fn only_one_applicable(decisions: &[Option<AuthorizationDecision>]) -> Autho
     }
 }
 
+#[inline]
 pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut deny = false;
     let mut combined = AuthorizationDecision::default();
@@ -167,6 +173,7 @@ pub fn permit_overrides(decisions: &[Option<AuthorizationDecision>]) -> Authoriz
     Decision::NotApplicable.into()
 }
 
+#[inline]
 pub fn permit_unless_deny(decisions: &[Option<AuthorizationDecision>]) -> AuthorizationDecision {
     let mut permit = false;
     let mut combined: AuthorizationDecision = Decision::Permit.into();

@@ -30,6 +30,7 @@ pub struct AuthorizationDecision {
 }
 
 impl AuthorizationDecision {
+    #[inline]
     pub fn new(
         decision: Decision,
         resource: Option<Value>,
@@ -50,6 +51,7 @@ impl AuthorizationDecision {
         }
     }
 
+    #[inline]
     pub fn collect(&mut self, auth_decision: AuthorizationDecision) {
         self.add_obligations(auth_decision.obligations);
         self.add_advice(auth_decision.advice);
@@ -96,12 +98,14 @@ impl AuthorizationDecision {
         }
     }
 
+    #[inline]
     pub fn set_decision(&mut self, decision: Decision) {
         self.decision = decision
     }
 }
 
 impl Default for AuthorizationDecision {
+    #[inline]
     fn default() -> Self {
         Self {
             decision: Decision::Deny,
@@ -113,6 +117,7 @@ impl Default for AuthorizationDecision {
 }
 
 impl From<Decision> for AuthorizationDecision {
+    #[inline]
     fn from(decision: Decision) -> Self {
         Self {
             decision,
@@ -122,12 +127,14 @@ impl From<Decision> for AuthorizationDecision {
 }
 
 impl From<AuthorizationDecision> for Value {
+    #[inline]
     fn from(value: AuthorizationDecision) -> Self {
         serde_json::to_value(value).expect("Failed to serialize AuthorizationDecision to JSON")
     }
 }
 
 impl std::fmt::Display for AuthorizationDecision {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Decision: {}", self.decision)?;
 

@@ -24,6 +24,7 @@ pub struct Schema {
 }
 
 impl Schema {
+    #[inline]
     pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
         let mut inner_rules = pair.into_inner();
         let sapl_id = inner_rules.next().unwrap();
@@ -40,6 +41,7 @@ impl Schema {
         }
     }
 
+    #[inline]
     pub fn validate(&self, name: &str) -> Option<String> {
         match &self.expr.validate_schema_expr() {
             Some(err) => {

@@ -42,6 +42,7 @@ mod eval_basic_function;
 pub(crate) use eval_basic_function::EvalBasicFunction;
 
 pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
+    #[inline]
     fn eval_op<U, F>(self, other: U, op_fn: F) -> EvalOp<Self, U, F>
     where
         F: Fn(&Result<Val, String>, &Result<Val, String>) -> Result<Val, String>,
@@ -51,6 +52,7 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalOp::new(self, other, op_fn)
     }
 
+    #[inline]
     fn eval_lazy_and<U>(self, other: U) -> EvalLazyAnd<Self, U>
     where
         U: Stream<Item = Result<Val, String>> + Send,
@@ -59,6 +61,7 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalLazyAnd::new(self, other)
     }
 
+    #[inline]
     fn eval_lazy_or<U>(self, other: U) -> EvalLazyOr<Self, U>
     where
         U: Stream<Item = Result<Val, String>> + Send,
@@ -67,6 +70,7 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalLazyOr::new(self, other)
     }
 
+    #[inline]
     fn eval_basic_function<F>(self, basic_fn: F) -> EvalBasicFunction<Self, F>
     where
         F: Fn(&Result<Val, String>) -> Result<Val, String>,
@@ -75,6 +79,7 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
         EvalBasicFunction::new(self, basic_fn)
     }
 
+    #[inline]
     fn eval_to_decision(
         self,
         policy: Policy,
@@ -90,6 +95,7 @@ pub trait StreamSapl: Stream<Item = Result<Val, String>> + Send {
 impl<S> StreamSaplDecision for S where S: Stream<Item = AuthorizationDecision> + std::marker::Send {}
 
 pub trait StreamSaplDecision: Stream<Item = AuthorizationDecision> + Send {
+    #[inline]
     fn to_json_value(self) -> ValueStream<Self>
     where
         Self: Sized,

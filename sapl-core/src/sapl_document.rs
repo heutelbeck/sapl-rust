@@ -36,6 +36,7 @@ pub struct SaplDocument {
 }
 
 impl SaplDocument {
+    #[inline]
     pub fn evaluate(&self, auth_subscription: &AuthorizationSubscription) -> AuthorizationDecision {
         use DocumentBody::*;
 
@@ -46,6 +47,7 @@ impl SaplDocument {
         }
     }
 
+    #[inline]
     pub fn evaluate_as_stream(
         &self,
         auth_subscription: &AuthorizationSubscription,
@@ -59,6 +61,7 @@ impl SaplDocument {
         }
     }
 
+    #[inline]
     pub fn validate(&self) -> Result<(), String> {
         let mut result_schema_validation: Result<(), String> = Ok(());
         if let Some(schemas) = &self.schemas {
@@ -79,6 +82,7 @@ impl SaplDocument {
         }
     }
 
+    #[inline]
     pub fn name(&self) -> &str {
         match &self.body {
             DocumentBody::Policy(p) => &p.name,

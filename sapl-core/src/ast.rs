@@ -92,6 +92,7 @@ pub enum Ast {
 }
 
 impl Clone for Ast {
+    #[inline]
     fn clone(&self) -> Self {
         match self {
             Ast::Expr { lhs, op, rhs } => Ast::Expr {
@@ -158,6 +159,7 @@ impl Clone for Ast {
 }
 
 impl Ast {
+    #[inline]
     pub fn parse(pairs: pest::iterators::Pairs<Rule>) -> Self {
         fn parse_pair(pair: pest::iterators::Pair<Rule>) -> Ast {
             match pair.as_rule() {
@@ -338,6 +340,7 @@ impl Ast {
         .parse(pairs)
     }
 
+    #[inline]
     pub fn parse_where_statement(pair: pest::iterators::Pair<Rule>) -> Ast {
         match pair.as_rule() {
             Rule::condition => Ast::parse(pair.into_inner()),
@@ -367,6 +370,7 @@ impl Ast {
         Ast::String(s)
     }
 
+    #[inline]
     pub fn evaluate(&self, variable_context: Arc<RwLock<Value>>) -> Result<bool, String> {
         match self.evaluate_inner(variable_context) {
             Ok(Val::Boolean(b)) => Ok(b),
@@ -378,6 +382,7 @@ impl Ast {
         }
     }
 
+    #[inline]
     pub fn evaluate_inner(&self, variable_context: Arc<RwLock<Value>>) -> Result<Val, String> {
         use self::Ast::*;
         use crate::evaluate::*;
@@ -475,6 +480,7 @@ impl Ast {
         }
     }
 
+    #[inline]
     pub fn validate_schema_expr(&self) -> Option<Vec<ValidationErr>> {
         let check = |e: &Arc<Ast>| -> Option<ValidationErr> {
             match &**e {
@@ -491,6 +497,7 @@ impl Ast {
         self.validate(check)
     }
 
+    #[inline]
     pub fn validate_target_expr(&self) -> Option<Vec<ValidationErr>> {
         let check = |e: &Arc<Ast>| -> Option<ValidationErr> {
             match &**e {
@@ -528,6 +535,7 @@ impl Ast {
         }
     }
 
+    #[inline]
     pub fn simplify(&mut self) {
         self.simplify_expr();
     }
@@ -607,6 +615,7 @@ impl Ast {
 
 impl<S> StreamSapl for S where S: Stream<Item = Result<Val, String>> + std::marker::Send {}
 impl Eval for Ast {
+    #[inline]
     fn eval(
         &self,
         auth_subscription: Arc<RwLock<Value>>,
@@ -868,6 +877,7 @@ pub enum Op {
 }
 
 impl Clone for Op {
+    #[inline]
     fn clone(&self) -> Self {
         use Op::*;
         match self {

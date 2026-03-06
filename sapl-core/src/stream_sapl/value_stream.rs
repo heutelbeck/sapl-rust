@@ -44,6 +44,7 @@ where
 {
     type Item = Value;
 
+    #[inline]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Poll::*;
         match self.as_mut().project().a.poll_next(cx) {

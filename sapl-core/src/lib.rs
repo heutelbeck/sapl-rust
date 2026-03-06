@@ -102,6 +102,7 @@ impl Entitlement {
     }
 }
 
+#[inline]
 pub fn parse_sapl_file(file: &str) -> Result<SaplDocument, Box<Error<Rule>>> {
     let pairs = SaplParser::parse(Rule::sapl_document, file)?;
 

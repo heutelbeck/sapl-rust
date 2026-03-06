@@ -41,6 +41,7 @@ impl<F> DecisionCombinedStream<F>
 where
     F: Fn(&[Option<AuthorizationDecision>]) -> AuthorizationDecision + Send,
 {
+    #[inline]
     pub fn new(
         streams: Vec<Pin<Box<dyn Stream<Item = AuthorizationDecision> + Send>>>,
         combine_fn: F,
@@ -62,6 +63,7 @@ where
 {
     type Item = AuthorizationDecision;
 
+    #[inline]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.as_mut().project();
         let len = this.streams.len();

@@ -46,6 +46,7 @@ pub struct Policy {
 }
 
 impl Policy {
+    #[inline]
     pub fn new(pairs: pest::iterators::Pairs<Rule>) -> Self {
         let mut policy = Policy::default();
 
@@ -86,6 +87,7 @@ impl Policy {
         policy
     }
 
+    #[inline]
     pub fn validate(&self) -> Result<(), String> {
         match &self.target_exp {
             Some(exp) => match exp.validate_target_expr() {
@@ -103,6 +105,7 @@ impl Policy {
         }
     }
 
+    #[inline]
     pub fn evaluate(&self, auth_subscription: Arc<RwLock<Value>>) -> AuthorizationDecision {
         let result = self.evaluate_decison(auth_subscription.clone());
         match result {
@@ -122,6 +125,7 @@ impl Policy {
         }
     }
 
+    #[inline]
     pub fn evaluate_decison(&self, variable_context: Arc<RwLock<Value>>) -> Decision {
         // Target Expression    |   Condition   |   Decision
         //---------------------------------------------------------
@@ -154,6 +158,7 @@ impl Policy {
         }
     }
 
+    #[inline]
     pub fn evaluate_where_statement(
         &self,
         variable_context: Arc<RwLock<Value>>,
@@ -178,6 +183,7 @@ impl Policy {
         result
     }
 
+    #[inline]
     pub fn evaluate_as_stream(
         &self,
         auth_subscription: Arc<RwLock<Value>>,

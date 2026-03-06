@@ -21,6 +21,7 @@ use std::task::{Context, Poll};
 use tokio_stream::Stream;
 
 // Function that creates a one-shot stream from a given Val
+#[inline]
 pub fn once_val(value: Val) -> impl Stream<Item = Result<Val, String>> {
     pub struct OnceValStream {
         value: Option<Result<Val, String>>,
@@ -40,6 +41,7 @@ pub fn once_val(value: Val) -> impl Stream<Item = Result<Val, String>> {
 }
 
 // Function that creates a one-shot stream from a given Decision
+#[inline]
 pub fn once_decision(value: AuthorizationDecision) -> impl Stream<Item = AuthorizationDecision> {
     pub struct OnceDecisionStream {
         value: Option<AuthorizationDecision>,

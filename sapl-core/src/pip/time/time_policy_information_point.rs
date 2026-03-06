@@ -29,6 +29,7 @@ pub struct Time {
 }
 
 impl Default for Time {
+    #[inline]
     fn default() -> Self {
         let mut interval = interval(Duration::from_millis(1000));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -37,12 +38,14 @@ impl Default for Time {
 }
 
 impl Time {
+    #[inline]
     pub fn new(update_interval_in_millis: u64) -> Self {
         let mut interval = interval(Duration::from_millis(update_interval_in_millis));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         Self { interval }
     }
 
+    #[inline]
     pub fn now() -> Result<Val, String> {
         Ok(Val::String(Local::now().to_rfc3339()))
     }
@@ -51,6 +54,7 @@ impl Time {
 impl Stream for Time {
     type Item = Result<Val, String>;
 
+    #[inline]
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

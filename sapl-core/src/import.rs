@@ -24,6 +24,7 @@ pub enum Import {
 }
 
 impl Import {
+    #[inline]
     pub fn parse(pair: pest::iterators::Pair<Rule>) -> Self {
         use Import::*;
 

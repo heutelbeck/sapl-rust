@@ -18,6 +18,7 @@ extern crate sapl_core;
 use sapl_core::authorization_subscription::AuthorizationSubscription;
 use sapl_core::parse_sapl_file;
 
+#[inline]
 pub fn auth_sub() -> AuthorizationSubscription {
     let auth_sub: AuthorizationSubscription =
         serde_json::from_str(r#"{ "subject": "WILLI", "action": "read", "resource": "something"}"#)

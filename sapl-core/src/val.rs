@@ -31,6 +31,7 @@ pub enum Val {
 }
 
 impl Val {
+    #[inline]
     pub fn to_value(&self) -> Value {
         let val = match self {
             Val::Float(f) => {
@@ -53,6 +54,7 @@ impl Val {
 }
 
 impl Clone for Val {
+    #[inline]
     fn clone(&self) -> Self {
         match self {
             Val::Float(f) => Val::Float(*f),
