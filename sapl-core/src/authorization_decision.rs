@@ -40,14 +40,8 @@ impl AuthorizationDecision {
         Self {
             decision,
             resource,
-            obligations: match obligations {
-                Some(obj) => Some(vec![obj]),
-                None => None,
-            },
-            advice: match advice {
-                Some(obj) => Some(vec![obj]),
-                None => None,
-            },
+            obligations: obligations.map(|obj| vec![obj]),
+            advice: advice.map(|obj| vec![obj]),
         }
     }
 
